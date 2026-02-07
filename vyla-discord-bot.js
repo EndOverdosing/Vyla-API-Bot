@@ -416,7 +416,8 @@ client.on('interactionCreate', async interaction => {
                     query: query,
                     currentPage: 1,
                     maxPageReached: 1,
-                    hasMore: response.data.meta?.has_next || false
+                    hasMore: response.data.meta?.has_next || false,
+                    messageId: interaction.id
                 });
 
                 const embeds = results.slice(0, 10).map((item, index) =>
@@ -448,7 +449,8 @@ client.on('interactionCreate', async interaction => {
                     type: 'trending',
                     results: results,
                     currentPage: 1,
-                    totalPages: Math.ceil(results.length / 10)
+                    totalPages: Math.ceil(results.length / 10),
+                    messageId: interaction.id
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, item.media_type || item.type, index + 1)
@@ -480,7 +482,8 @@ client.on('interactionCreate', async interaction => {
                     contentType: type,
                     endpoint: endpoint,
                     currentPage: 1,
-                    totalPages: response.data.meta?.total_pages || 1
+                    totalPages: response.data.meta?.total_pages || 1,
+                    messageId: interaction.id
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, type, index + 1)
@@ -512,7 +515,8 @@ client.on('interactionCreate', async interaction => {
                     contentType: type,
                     endpoint: endpoint,
                     currentPage: 1,
-                    totalPages: response.data.meta?.total_pages || 1
+                    totalPages: response.data.meta?.total_pages || 1,
+                    messageId: interaction.id
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, type, index + 1)
@@ -573,7 +577,8 @@ client.on('interactionCreate', async interaction => {
                     contentType: 'movie',
                     endpoint: '/movie/upcoming',
                     currentPage: 1,
-                    totalPages: response.data.meta?.total_pages || 1
+                    totalPages: response.data.meta?.total_pages || 1,
+                    messageId: interaction.id
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, 'movie', index + 1)
@@ -603,7 +608,8 @@ client.on('interactionCreate', async interaction => {
                     contentType: 'movie',
                     endpoint: '/movie/now_playing',
                     currentPage: 1,
-                    totalPages: response.data.meta?.total_pages || 1
+                    totalPages: response.data.meta?.total_pages || 1,
+                    messageId: interaction.id
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, 'movie', index + 1)
@@ -633,7 +639,8 @@ client.on('interactionCreate', async interaction => {
                     contentType: 'tv',
                     endpoint: '/tv/airing_today',
                     currentPage: 1,
-                    totalPages: response.data.meta?.total_pages || 1
+                    totalPages: response.data.meta?.total_pages || 1,
+                    messageId: interaction.id
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, 'tv', index + 1)
@@ -694,110 +701,87 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isButton()) {
         if (interaction.customId === 'back_to_results') {
             await interaction.deferUpdate();
-            const message = interaction.message;
-            const sessionId = Object.keys(userSessions).find(key =>
-                message.content.includes(key.split('_')[0]) ||
-                message.embeds?.[0]?.title?.includes('Results') ||
-                message.embeds?.[0]?.description?.includes('results')
-            );
 
-            if (!sessionId) {
-                const sessionKey = Object.keys(userSessions).find(key => {
-                    const session = userSessions.get(key);
-                    return session && (
-                        session.type === 'search' ||
-                        session.type === 'trending' ||
-                        session.type === 'popular' ||
-                        session.type === 'toprated' ||
-                        session.type === 'genre' ||
-                        session.type === 'upcoming' ||
-                        session.type === 'nowplaying' ||
-                        session.type === 'airingtoday'
-                    );
-                });
-
-                if (sessionKey) {
-                    const session = userSessions.get(sessionKey);
-                    let content = '';
-                    let embeds = [];
-                    let components = [];
-
+            for (const [sessionKey, session] of userSessions.entries()) {
+                if (session && session.messageId === interaction.message.id) {
                     try {
                         if (session.type === 'search') {
                             const response = await api.get(`/search?q=${encodeURIComponent(session.query)}&page=${session.currentPage}`);
                             const results = response.data.results || [];
-                            embeds = results.slice(0, 10).map((item, index) =>
+                            const embeds = results.slice(0, 10).map((item, index) =>
                                 createMediaEmbed(item, item.type || item.media_type, (session.currentPage - 1) * 10 + index + 1)
                             );
-                            content = `Found ${results.length} results for "${session.query}" on page ${session.currentPage}. Select one to see details:`;
-                            components = [createSelectionButtons(sessionKey, results)];
+                            const content = `Found ${results.length} results for "${session.query}" on page ${session.currentPage}. Select one to see details:`;
+                            const components = [createSelectionButtons(sessionKey, results)];
                             if (response.data.meta?.has_next || session.currentPage < (session.maxPageReached || 1)) {
                                 components.push(createPaginationButtons(session.currentPage, response.data.meta?.has_next || false, session.currentPage > 1, sessionKey));
                             }
+                            await interaction.editReply({ content, embeds, components });
+                            return;
                         } else if (session.type === 'trending' && session.results) {
                             const startIndex = (session.currentPage - 1) * 10;
                             const results = session.results.slice(startIndex, startIndex + 10);
-                            embeds = results.map((item, index) =>
+                            const embeds = results.map((item, index) =>
                                 createMediaEmbed(item, item.media_type || item.type, startIndex + index + 1)
                             );
-                            content = 'Trending now - Select one to see details:';
-                            components = [createSelectionButtons(sessionKey, results)];
+                            const components = [createSelectionButtons(sessionKey, results)];
                             if (session.results.length > startIndex + 10 || session.currentPage < session.totalPages) {
                                 components.push(createPaginationButtons(session.currentPage, true, session.currentPage > 1, sessionKey));
                             }
+                            await interaction.editReply({ content: 'Trending now - Select one to see details:', embeds, components });
+                            return;
                         } else if (session.endpoint) {
                             const response = await api.get(`/list?endpoint=${session.endpoint}&page=${session.currentPage}`);
                             const results = response.data.results || [];
-                            embeds = results.slice(0, 10).map((item, index) =>
+                            const embeds = results.slice(0, 10).map((item, index) =>
                                 createMediaEmbed(item, session.contentType, (session.currentPage - 1) * 10 + index + 1)
                             );
-                            let typeText = '';
-                            if (session.type === 'popular' || session.type === 'toprated') {
-                                typeText = `${session.type.charAt(0).toUpperCase() + session.type.slice(1)} ${session.contentType === 'movie' ? 'Movies' : 'TV Shows'}`;
+                            let content = '';
+                            if (session.type === 'popular') {
+                                content = `Popular ${session.contentType === 'movie' ? 'Movies' : 'TV Shows'} - Page ${session.currentPage}`;
+                            } else if (session.type === 'toprated') {
+                                content = `Top Rated ${session.contentType === 'movie' ? 'Movies' : 'TV Shows'} - Page ${session.currentPage}`;
                             } else if (session.type === 'upcoming') {
-                                typeText = 'Upcoming Movies';
+                                content = `Upcoming Movies - Page ${session.currentPage}`;
                             } else if (session.type === 'nowplaying') {
-                                typeText = 'Now Playing in Theaters';
+                                content = `Now Playing in Theaters - Page ${session.currentPage}`;
                             } else if (session.type === 'airingtoday') {
-                                typeText = 'Airing Today';
+                                content = `Airing Today - Page ${session.currentPage}`;
                             }
-                            content = `${typeText} - Page ${session.currentPage}`;
-                            components = [createSelectionButtons(sessionKey, results)];
+                            const components = [createSelectionButtons(sessionKey, results)];
                             if (response.data.meta?.has_next) {
                                 components.push(createPaginationButtons(session.currentPage, true, session.currentPage > 1, sessionKey));
                             }
+                            await interaction.editReply({ content, embeds, components });
+                            return;
                         } else if (session.type === 'genre') {
                             const response = await api.get(`/genres/${session.contentType}/${session.genreId}?page=${session.currentPage}&sort_by=popularity.desc`);
                             const results = response.data.results || [];
-                            embeds = results.slice(0, 10).map((item, index) =>
+                            const embeds = results.slice(0, 10).map((item, index) =>
                                 createMediaEmbed(item, session.contentType, (session.currentPage - 1) * 10 + index + 1)
                             );
                             const genreName = GENRE_MAP[session.contentType][session.genreId] || 'Selected Genre';
-                            content = `${genreName} ${session.contentType === 'movie' ? 'Movies' : 'TV Shows'} - Page ${session.currentPage}`;
-                            components = [createSelectionButtons(sessionKey, results)];
+                            const content = `${genreName} ${session.contentType === 'movie' ? 'Movies' : 'TV Shows'} - Page ${session.currentPage}`;
+                            const components = [createSelectionButtons(sessionKey, results)];
                             if (response.data.meta?.has_next) {
                                 components.push(createPaginationButtons(session.currentPage, true, session.currentPage > 1, sessionKey));
                             }
+                            await interaction.editReply({ content, embeds, components });
+                            return;
                         }
-
-                        await interaction.editReply({
-                            content: content,
-                            embeds: embeds,
-                            components: components
-                        });
-                        return;
                     } catch (error) {
                         console.error('Back to results error:', error);
                     }
+                    break;
                 }
-
-                await interaction.editReply({
-                    content: 'Use the command again to browse results.',
-                    embeds: [],
-                    components: []
-                });
-                return;
             }
+
+            await interaction.editReply({
+                content: 'Session not found. Please use the command again.',
+                embeds: [],
+                components: []
+            });
+            return;
         }
 
         if (interaction.customId.startsWith('watch_')) {
@@ -1151,7 +1135,8 @@ client.on('interactionCreate', async interaction => {
                 contentType: type,
                 genreId: genreId,
                 currentPage: 1,
-                totalPages: response.data.meta?.total_pages || 1
+                totalPages: response.data.meta?.total_pages || 1,
+                messageId: interaction.id
             });
             const genreName = GENRE_MAP[type][genreId] || 'Selected Genre';
             const embeds = results.slice(0, 10).map((item, index) =>
