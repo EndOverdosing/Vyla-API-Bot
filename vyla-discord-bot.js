@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, SlashCommandBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const axios = require('axios');
 require('dotenv').config();
 
@@ -56,7 +56,7 @@ const userSessions = new Map();
 
 function createMediaEmbed(item, type, index) {
     const embed = new EmbedBuilder()
-        .setColor('#fcfcfcff')
+        .setColor('White')
         .setTitle(`${index}. ${item.title || item.name}`)
         .setDescription(item.overview ? (item.overview.length > 200 ? item.overview.substring(0, 197) + '...' : item.overview) : 'No description available')
         .addFields(
@@ -76,7 +76,7 @@ function createMediaEmbed(item, type, index) {
 function createDetailedEmbed(data, type) {
     const info = data.info || data.data;
     const embed = new EmbedBuilder()
-        .setColor('#fcfcfcff')
+        .setColor('White')
         .setTitle(info.title || info.name)
         .setDescription(info.overview || 'No description available');
 
@@ -174,10 +174,23 @@ client.once('ready', () => {
 });
 
 async function registerCommands() {
+    const ALLOWED_CHANNEL_ID = '1469774727298941050';
+
+    const defaultPermission = {
+        id: ALLOWED_CHANNEL_ID,
+        type: 'CHANNEL',
+        permission: true
+    };
+
     const commands = [
         new SlashCommandBuilder()
             .setName('help')
-            .setDescription('Show all available commands and how to use the bot'),
+            .setDescription('Show all available commands and how to use the bot')
+            .setDefaultMemberPermissions(PermissionFlagsBits.None)
+            .addChannelOption(option =>
+                option.setName('channel')
+                    .setDescription('The channel to use')
+                    .setRequired(false)),
 
         new SlashCommandBuilder()
             .setName('search')
@@ -263,6 +276,13 @@ async function registerCommands() {
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
+
+    if (interaction.channelId !== '1469774727298941050') {
+        return interaction.reply({
+            content: '❌ This bot can only be used in the designated channel.',
+            ephemeral: true
+        });
+    }
 
     const { commandName, options } = interaction;
 
