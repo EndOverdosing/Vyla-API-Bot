@@ -726,14 +726,28 @@ client.on('interactionCreate', async interaction => {
 
         if (interaction.customId.includes('_prev') || interaction.customId.includes('_next')) {
             await interaction.deferUpdate();
-            const parts = interaction.customId.split('_');
-            const prefix = parts[0];
-            const direction = parts[1];
-            const sessionId = parts[2] || parts.slice(0, 2).join('_');
+
+            const customId = interaction.customId;
+            let sessionId = '';
+            let direction = '';
+
+            if (customId.includes('_prev')) {
+                const parts = customId.split('_prev');
+                sessionId = parts[0];
+                direction = 'prev';
+            } else if (customId.includes('_next')) {
+                const parts = customId.split('_next');
+                sessionId = parts[0];
+                direction = 'next';
+            }
+
+            if (sessionId.startsWith('_')) {
+                sessionId = sessionId.substring(1);
+            }
 
             const session = userSessions.get(sessionId);
             if (!session) {
-                await interaction.followUp({ content: 'Session expired.', ephemeral: true });
+                await interaction.followUp({ content: 'Session expired. Please run the command again.', ephemeral: true });
                 return;
             }
 
@@ -742,7 +756,6 @@ client.on('interactionCreate', async interaction => {
             if (direction === 'next') page = Math.min(Math.ceil(session.results.length / 10), page + 1);
 
             session.currentPage = page;
-            userSessions.set(sessionId, session);
 
             const startIndex = (page - 1) * 10;
             const endIndex = startIndex + 10;
@@ -753,6 +766,17 @@ client.on('interactionCreate', async interaction => {
             );
 
             const components = [createSelectionButtons(sessionId, currentItems)];
+
+            let prefix = '';
+            if (customId.includes('search_')) prefix = 'search';
+            else if (customId.includes('trending_')) prefix = 'trending';
+            else if (customId.includes('popular_')) prefix = 'popular';
+            else if (customId.includes('toprated_')) prefix = 'toprated';
+            else if (customId.includes('upcoming_')) prefix = 'upcoming';
+            else if (customId.includes('nowplaying_')) prefix = 'nowplaying';
+            else if (customId.includes('airingtoday_')) prefix = 'airingtoday';
+            else if (customId.includes('genre_')) prefix = 'genre';
+
             if (session.results.length > 10) {
                 components.push(createPaginationButtons(page, Math.ceil(session.results.length / 10), `${prefix}_${sessionId}`));
             }
