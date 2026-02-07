@@ -245,7 +245,7 @@ async function updatePresence() {
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
     await updatePresence();
-    setInterval(updatePresence, 5000);
+    setInterval(updatePresence, 10000);
     registerCommands();
 });
 
@@ -254,14 +254,14 @@ client.on('messageCreate', async message => {
 
     if (message.mentions.has(client.user)) {
         const responses = [
-            "🎬 What's up? Need help finding something to watch? Use `/help` to see what I can do!",
-            "📺 Hey there! Looking for movies or shows? Try `/search` or `/trending`!",
-            "👋 Hi! I'm here to help you discover awesome content. Use `/help` to get started!",
-            "🍿 Ready to watch something amazing? Check out `/random` for a surprise pick!",
-            "✨ Hey! I've got thousands of movies and shows ready for you. Use `/help` to explore!",
-            "🎥 What's good? Want recommendations? Try `/popular` or `/toprated`!",
-            "🌟 Yo! Need entertainment? Use `/genres` to browse by category!",
-            "🎭 Hello! Can't decide what to watch? Let me help with `/random`!"
+            "What's up? Need help finding something to watch? Use `/help` to see what I can do!",
+            "Hey there! Looking for movies or shows? Try `/search` or `/trending`!",
+            "Hi! I'm here to help you discover awesome content. Use `/help` to get started!",
+            "Ready to watch something amazing? Check out `/random` for a surprise pick!",
+            "Hey! I've got thousands of movies and shows ready for you. Use `/help` to explore!",
+            "What's good? Want recommendations? Try `/popular` or `/toprated`!",
+            "Yo! Need entertainment? Use `/genres` to browse by category!",
+            "Hello! Can't decide what to watch? Let me help with `/random`!"
         ];
         const randomResponse = responses[Math.floor(Math.random() * responses.length)];
         await message.reply(randomResponse);
@@ -976,35 +976,38 @@ client.on('interactionCreate', async interaction => {
             await interaction.followUp({ content: 'Session expired.', ephemeral: true });
             return;
         }
-        const index = Number(interaction.values[0].split('_')[2]);
+        const selectedIndex = parseInt(interaction.values[0].split('_').pop());
 
-        let item;
-        if (session.type === 'search') {
-            const response = await api.get(`/search?q=${encodeURIComponent(session.query)}&page=${session.currentPage}`);
-            const currentResults = response.data.results || [];
-            item = currentResults[index];
-        } else if (session.type === 'genre') {
-            const response = await api.get(`/genres/${session.contentType}/${session.genreId}?page=${session.currentPage}&sort_by=popularity.desc`);
-            const currentResults = response.data.results || [];
-            item = currentResults[index];
-        } else if (session.endpoint) {
-            const response = await api.get(`/list?endpoint=${session.endpoint}&page=${session.currentPage}`);
-            const currentResults = response.data.results || [];
-            item = currentResults[index];
-        } else if (session.type === 'trending') {
-            const startIndex = (session.currentPage - 1) * 10;
-            item = session.results[startIndex + index];
-        } else {
-            const startIndex = (session.currentPage - 1) * 10;
-            item = session.results ? session.results[startIndex + index] : null;
-        }
-
-        if (!item) {
-            await interaction.followUp({ content: 'Item not found.', ephemeral: true });
-            return;
-        }
-        const type = item.type || item.media_type || session.contentType;
         try {
+            let item;
+            const startIndex = (session.currentPage - 1) * 10;
+
+            if (session.type === 'search') {
+                const response = await api.get(`/search?q=${encodeURIComponent(session.query)}&page=${session.currentPage}`);
+                const currentResults = response.data.results || [];
+                item = currentResults[selectedIndex];
+            } else if (session.type === 'genre') {
+                const response = await api.get(`/genres/${session.contentType}/${session.genreId}?page=${session.currentPage}&sort_by=popularity.desc`);
+                const currentResults = response.data.results || [];
+                item = currentResults[selectedIndex];
+            } else if (session.type === 'trending' && session.results) {
+                const allResults = session.results || [];
+                item = allResults[startIndex + selectedIndex];
+            } else if (session.endpoint) {
+                const response = await api.get(`/list?endpoint=${session.endpoint}&page=${session.currentPage}`);
+                const currentResults = response.data.results || [];
+                item = currentResults[selectedIndex];
+            } else if (session.results) {
+                const allResults = session.results || [];
+                item = allResults[startIndex + selectedIndex];
+            }
+
+            if (!item) {
+                await interaction.followUp({ content: 'Item not found. Please select again.', ephemeral: true });
+                return;
+            }
+
+            const type = item.type || item.media_type || session.contentType;
             const detailsResponse = await api.get(`/details/${type}/${item.id}`);
             const embed = createDetailedEmbed(detailsResponse.data, type);
             const row = new ActionRowBuilder().addComponents(
@@ -1022,8 +1025,9 @@ client.on('interactionCreate', async interaction => {
                 components: [row]
             });
         } catch (error) {
+            console.error('Selection error:', error);
             await interaction.followUp({
-                content: 'Could not load details.',
+                content: 'Could not load details. Please try again.',
                 ephemeral: true
             });
         }
