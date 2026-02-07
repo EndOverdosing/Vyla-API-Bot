@@ -979,17 +979,24 @@ client.on('interactionCreate', async interaction => {
         const index = Number(interaction.values[0].split('_')[2]);
 
         let item;
-        if (session.type === 'search' || session.type === 'genre' || session.endpoint) {
-            const response = session.type === 'search'
-                ? await api.get(`/search?q=${encodeURIComponent(session.query)}&page=${session.currentPage}`)
-                : session.type === 'genre'
-                    ? await api.get(`/genres/${session.contentType}/${session.genreId}?page=${session.currentPage}&sort_by=popularity.desc`)
-                    : await api.get(`/list?endpoint=${session.endpoint}&page=${session.currentPage}`);
+        if (session.type === 'search') {
+            const response = await api.get(`/search?q=${encodeURIComponent(session.query)}&page=${session.currentPage}`);
             const currentResults = response.data.results || [];
             item = currentResults[index];
-        } else {
+        } else if (session.type === 'genre') {
+            const response = await api.get(`/genres/${session.contentType}/${session.genreId}?page=${session.currentPage}&sort_by=popularity.desc`);
+            const currentResults = response.data.results || [];
+            item = currentResults[index];
+        } else if (session.endpoint) {
+            const response = await api.get(`/list?endpoint=${session.endpoint}&page=${session.currentPage}`);
+            const currentResults = response.data.results || [];
+            item = currentResults[index];
+        } else if (session.type === 'trending') {
             const startIndex = (session.currentPage - 1) * 10;
             item = session.results[startIndex + index];
+        } else {
+            const startIndex = (session.currentPage - 1) * 10;
+            item = session.results ? session.results[startIndex + index] : null;
         }
 
         if (!item) {
