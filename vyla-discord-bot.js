@@ -238,14 +238,14 @@ client.on('messageCreate', async message => {
 
     if (message.mentions.has(client.user)) {
         const responses = [
-            "🎬 What's up? Need help finding something to watch? Use `/help` to see what I can do!",
-            "📺 Hey there! Looking for movies or shows? Try `/search` or `/trending`!",
-            "👋 Hi! I'm here to help you discover awesome content. Use `/help` to get started!",
-            "🍿 Ready to watch something amazing? Check out `/random` for a surprise pick!",
-            "✨ Hey! I've got thousands of movies and shows ready for you. Use `/help` to explore!",
-            "🎥 What's good? Want recommendations? Try `/popular` or `/toprated`!",
-            "🌟 Yo! Need entertainment? Use `/genres` to browse by category!",
-            "🎭 Hello! Can't decide what to watch? Let me help with `/random`!"
+            "What's up? Need help finding something to watch? Use `/help` to see what I can do!",
+            "Hey there! Looking for movies or shows? Try `/search` or `/trending`!",
+            "Hi! I'm here to help you discover awesome content. Use `/help` to get started!",
+            "Ready to watch something amazing? Check out `/random` for a surprise pick!",
+            "Hey! I've got thousands of movies and shows ready for you. Use `/help` to explore!",
+            "What's good? Want recommendations? Try `/popular` or `/toprated`!",
+            "Yo! Need entertainment? Use `/genres` to browse by category!",
+            "Hello! Can't decide what to watch? Let me help with `/random`!"
         ];
         const randomResponse = responses[Math.floor(Math.random() * responses.length)];
         await message.reply(randomResponse);
