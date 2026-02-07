@@ -52,24 +52,17 @@ const GENRE_MAP = {
     }
 };
 
-function createMediaEmbed(item, type) {
+const userSessions = new Map();
+
+function createMediaEmbed(item, type, index) {
     const embed = new EmbedBuilder()
-        .setColor('#E50914')
-        .setTitle(item.title || item.name)
-        .setURL(`https://www.themoviedb.org/${type}/${item.id}`)
-        .setDescription(item.overview ? (item.overview.length > 300 ? item.overview.substring(0, 297) + '...' : item.overview) : 'No description available')
+        .setColor('#fcfcfcff')
+        .setTitle(`${index}. ${item.title || item.name}`)
+        .setDescription(item.overview ? (item.overview.length > 200 ? item.overview.substring(0, 197) + '...' : item.overview) : 'No description available')
         .addFields(
             { name: 'Rating', value: item.vote_average ? `${item.vote_average}/10` : 'N/A', inline: true },
-            { name: 'Release', value: item.release_date || item.first_air_date || 'Unknown', inline: true },
-            { name: 'ID', value: item.id.toString(), inline: true }
-        )
-        .setFooter({ text: `Type: ${type.toUpperCase()}` });
-
-    if (item.backdrop) {
-        embed.setImage(item.backdrop);
-    } else if (item.backdrop_path) {
-        embed.setImage(`https://image.tmdb.org/t/p/w780${item.backdrop_path}`);
-    }
+            { name: 'Year', value: (item.release_date || item.first_air_date || 'Unknown').split('-')[0], inline: true }
+        );
 
     if (item.poster) {
         embed.setThumbnail(item.poster);
@@ -83,28 +76,22 @@ function createMediaEmbed(item, type) {
 function createDetailedEmbed(data, type) {
     const info = data.info || data.data;
     const embed = new EmbedBuilder()
-        .setColor('#E50914')
+        .setColor('#fcfcfcff')
         .setTitle(info.title || info.name)
-        .setURL(`https://www.themoviedb.org/${type}/${info.id}`)
         .setDescription(info.overview || 'No description available');
 
     const fields = [
-        { name: 'Rating', value: `${info.vote_average || 'N/A'}/10 (${info.vote_count || 0} votes)`, inline: true },
-        { name: 'Status', value: info.status || 'Unknown', inline: true },
-        { name: 'Language', value: info.original_language?.toUpperCase() || 'N/A', inline: true }
+        { name: 'Rating', value: `${info.vote_average || 'N/A'}/10`, inline: true },
+        { name: 'Status', value: info.status || 'Unknown', inline: true }
     ];
 
     if (type === 'movie') {
         fields.push(
-            { name: 'Release Date', value: info.release_date || 'Unknown', inline: true },
-            { name: 'Runtime', value: info.runtime ? `${info.runtime} min` : 'N/A', inline: true },
-            { name: 'Budget', value: info.budget ? `$${info.budget.toLocaleString()}` : 'N/A', inline: true },
-            { name: 'Revenue', value: info.revenue ? `$${info.revenue.toLocaleString()}` : 'N/A', inline: true }
+            { name: 'Release', value: info.release_date || 'Unknown', inline: true },
+            { name: 'Runtime', value: info.runtime ? `${info.runtime} min` : 'N/A', inline: true }
         );
     } else {
         fields.push(
-            { name: 'First Air Date', value: info.first_air_date || 'Unknown', inline: true },
-            { name: 'Last Air Date', value: info.last_air_date || 'Unknown', inline: true },
             { name: 'Seasons', value: info.number_of_seasons?.toString() || 'N/A', inline: true },
             { name: 'Episodes', value: info.number_of_episodes?.toString() || 'N/A', inline: true }
         );
@@ -132,111 +119,96 @@ function createDetailedEmbed(data, type) {
     return embed;
 }
 
-function createCastEmbed(data) {
-    const person = data.person;
-    const embed = new EmbedBuilder()
-        .setColor('#E50914')
-        .setTitle(person.name)
-        .setDescription(person.biography ? (person.biography.length > 500 ? person.biography.substring(0, 497) + '...' : person.biography) : 'No biography available');
+function createPaginationButtons(page, totalPages, prefix) {
+    const row = new ActionRowBuilder();
 
-    const fields = [
-        { name: 'Known For', value: person.known_for_department || 'N/A', inline: true },
-        { name: 'Birthday', value: person.birthday || 'Unknown', inline: true },
-        { name: 'Place of Birth', value: person.place_of_birth || 'Unknown', inline: true }
-    ];
-
-    if (person.deathday) {
-        fields.push({ name: 'Died', value: person.deathday, inline: true });
+    if (page > 1) {
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`${prefix}_prev_${page}`)
+                .setLabel('Previous')
+                .setStyle(ButtonStyle.Primary)
+        );
     }
 
-    if (data.known_for && data.known_for.length > 0) {
-        const titles = data.known_for.slice(0, 5).map(item => item.title || item.name).join(', ');
-        fields.push({ name: 'Known For', value: titles, inline: false });
+    row.addComponents(
+        new ButtonBuilder()
+            .setCustomId(`${prefix}_page`)
+            .setLabel(`Page ${page}/${totalPages}`)
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true)
+    );
+
+    if (page < totalPages) {
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`${prefix}_next_${page}`)
+                .setLabel('Next')
+                .setStyle(ButtonStyle.Primary)
+        );
     }
 
-    embed.addFields(fields);
-
-    if (person.profile_path) {
-        embed.setThumbnail(`https://image.tmdb.org/t/p/w342${person.profile_path}`);
-    }
-
-    return embed;
+    return row;
 }
 
-function createEpisodeEmbed(data, tvId, season, episode) {
-    const ep = data.data;
-    const embed = new EmbedBuilder()
-        .setColor('#E50914')
-        .setTitle(`S${season}E${episode}: ${ep.name}`)
-        .setDescription(ep.overview || 'No description available')
-        .addFields(
-            { name: 'Air Date', value: ep.air_date || 'Unknown', inline: true },
-            { name: 'Rating', value: ep.rating ? `${ep.rating}/10` : 'N/A', inline: true },
-            { name: 'Runtime', value: ep.runtime ? `${ep.runtime} min` : 'N/A', inline: true }
+function createSelectionButtons(sessionId, items) {
+    const options = items.slice(0, 10).map((item, index) => ({
+        label: `${index + 1}. ${(item.title || item.name).substring(0, 90)}`,
+        description: `${item.vote_average || 'N/A'}/10 - ${(item.release_date || item.first_air_date || 'Unknown').split('-')[0]}`,
+        value: `select_${sessionId}_${index}`
+    }));
+
+    return new ActionRowBuilder()
+        .addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`selection_${sessionId}`)
+                .setPlaceholder('Choose a movie or TV show')
+                .addOptions(options)
         );
-
-    if (ep.still) {
-        embed.setImage(ep.still);
-    }
-
-    if (ep.crew && ep.crew.directors && ep.crew.directors.length > 0) {
-        embed.addFields({ name: 'Director', value: ep.crew.directors.map(d => d.name).join(', '), inline: false });
-    }
-
-    if (ep.crew && ep.crew.writers && ep.crew.writers.length > 0) {
-        embed.addFields({ name: 'Writers', value: ep.crew.writers.map(w => w.name).join(', '), inline: false });
-    }
-
-    if (ep.guest_stars && ep.guest_stars.length > 0) {
-        const guests = ep.guest_stars.slice(0, 3).map(g => `${g.name} as ${g.character}`).join(', ');
-        embed.addFields({ name: 'Guest Stars', value: guests, inline: false });
-    }
-
-    return embed;
 }
 
 client.once('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
-    client.user.setActivity('movies & TV shows', { type: 'WATCHING' });
+    client.user.setActivity('/help for commands', { type: 3 });
     registerCommands();
 });
 
 async function registerCommands() {
     const commands = [
         new SlashCommandBuilder()
+            .setName('help')
+            .setDescription('Show all available commands and how to use the bot'),
+
+        new SlashCommandBuilder()
             .setName('search')
-            .setDescription('Search for movies and TV shows')
+            .setDescription('Search for movies and TV shows by name')
             .addStringOption(option =>
-                option.setName('query')
-                    .setDescription('What to search for')
-                    .setRequired(true)),
-
-        new SlashCommandBuilder()
-            .setName('movie')
-            .setDescription('Get detailed information about a movie')
-            .addIntegerOption(option =>
-                option.setName('id')
-                    .setDescription('TMDB Movie ID')
-                    .setRequired(true)),
-
-        new SlashCommandBuilder()
-            .setName('tv')
-            .setDescription('Get detailed information about a TV show')
-            .addIntegerOption(option =>
-                option.setName('id')
-                    .setDescription('TMDB TV Show ID')
+                option.setName('title')
+                    .setDescription('Movie or TV show name')
                     .setRequired(true)),
 
         new SlashCommandBuilder()
             .setName('trending')
-            .setDescription('Get trending movies and TV shows'),
+            .setDescription('See what is trending right now'),
 
         new SlashCommandBuilder()
             .setName('popular')
-            .setDescription('Get popular content')
+            .setDescription('Browse popular movies or TV shows')
             .addStringOption(option =>
                 option.setName('type')
-                    .setDescription('Content type')
+                    .setDescription('What to browse')
+                    .setRequired(true)
+                    .addChoices(
+                        { name: 'Movies', value: 'movie' },
+                        { name: 'TV Shows', value: 'tv' }
+                    )),
+
+        new SlashCommandBuilder()
+            .setName('toprated')
+            .setDescription('Browse top rated content')
+            .addStringOption(option =>
+                option.setName('type')
+                    .setDescription('What to browse')
                     .setRequired(true)
                     .addChoices(
                         { name: 'Movies', value: 'movie' },
@@ -245,83 +217,7 @@ async function registerCommands() {
 
         new SlashCommandBuilder()
             .setName('genres')
-            .setDescription('Browse content by genre')
-            .addStringOption(option =>
-                option.setName('type')
-                    .setDescription('Content type')
-                    .setRequired(true)
-                    .addChoices(
-                        { name: 'Movies', value: 'movie' },
-                        { name: 'TV Shows', value: 'tv' }
-                    ))
-            .addStringOption(option =>
-                option.setName('genre')
-                    .setDescription('Genre name')
-                    .setRequired(true)),
-
-        new SlashCommandBuilder()
-            .setName('cast')
-            .setDescription('Get information about an actor or crew member')
-            .addIntegerOption(option =>
-                option.setName('id')
-                    .setDescription('TMDB Person ID')
-                    .setRequired(true)),
-
-        new SlashCommandBuilder()
-            .setName('watch')
-            .setDescription('Get streaming links for content')
-            .addStringOption(option =>
-                option.setName('type')
-                    .setDescription('Content type')
-                    .setRequired(true)
-                    .addChoices(
-                        { name: 'Movie', value: 'movie' },
-                        { name: 'TV Show', value: 'tv' }
-                    ))
-            .addIntegerOption(option =>
-                option.setName('id')
-                    .setDescription('TMDB ID')
-                    .setRequired(true))
-            .addIntegerOption(option =>
-                option.setName('season')
-                    .setDescription('Season number (TV shows only)')
-                    .setRequired(false))
-            .addIntegerOption(option =>
-                option.setName('episode')
-                    .setDescription('Episode number (TV shows only)')
-                    .setRequired(false)),
-
-        new SlashCommandBuilder()
-            .setName('season')
-            .setDescription('Get TV show season details')
-            .addIntegerOption(option =>
-                option.setName('tvid')
-                    .setDescription('TMDB TV Show ID')
-                    .setRequired(true))
-            .addIntegerOption(option =>
-                option.setName('season')
-                    .setDescription('Season number')
-                    .setRequired(true)),
-
-        new SlashCommandBuilder()
-            .setName('episode')
-            .setDescription('Get TV show episode details')
-            .addIntegerOption(option =>
-                option.setName('tvid')
-                    .setDescription('TMDB TV Show ID')
-                    .setRequired(true))
-            .addIntegerOption(option =>
-                option.setName('season')
-                    .setDescription('Season number')
-                    .setRequired(true))
-            .addIntegerOption(option =>
-                option.setName('episode')
-                    .setDescription('Episode number')
-                    .setRequired(true)),
-
-        new SlashCommandBuilder()
-            .setName('toprated')
-            .setDescription('Get top rated content')
+            .setDescription('Browse movies or TV shows by genre')
             .addStringOption(option =>
                 option.setName('type')
                     .setDescription('Content type')
@@ -333,22 +229,22 @@ async function registerCommands() {
 
         new SlashCommandBuilder()
             .setName('upcoming')
-            .setDescription('Get upcoming movies'),
+            .setDescription('See upcoming movie releases'),
 
         new SlashCommandBuilder()
             .setName('nowplaying')
-            .setDescription('Get movies now playing in theaters'),
+            .setDescription('See movies currently in theaters'),
 
         new SlashCommandBuilder()
             .setName('airingtoday')
-            .setDescription('Get TV shows airing today'),
+            .setDescription('See TV shows airing today'),
 
         new SlashCommandBuilder()
             .setName('random')
-            .setDescription('Get a random movie or TV show')
+            .setDescription('Get a random movie or TV show recommendation')
             .addStringOption(option =>
                 option.setName('type')
-                    .setDescription('Content type')
+                    .setDescription('What type')
                     .setRequired(true)
                     .addChoices(
                         { name: 'Movie', value: 'movie' },
@@ -374,62 +270,83 @@ client.on('interactionCreate', async interaction => {
         await interaction.deferReply();
 
         switch (commandName) {
+            case 'help': {
+                const embed = new EmbedBuilder()
+                    .setColor('#fcfcfcff')
+                    .setTitle('Vyla Bot - Help Guide')
+                    .setDescription('I help you discover and watch movies and TV shows. Here is how to use me:')
+                    .addFields(
+                        {
+                            name: 'Search for Content',
+                            value: '`/search title:avengers` - Find movies or shows by name. I will show you results and you can select what you want to see.',
+                            inline: false
+                        },
+                        {
+                            name: 'Browse by Category',
+                            value: '`/trending` - See what is hot right now\n`/popular type:Movies` - Browse popular content\n`/toprated type:TV Shows` - See highest rated content',
+                            inline: false
+                        },
+                        {
+                            name: 'Browse by Genre',
+                            value: '`/genres type:Movies` - I will show you all genres to choose from. No need to remember genre names!',
+                            inline: false
+                        },
+                        {
+                            name: 'Special Lists',
+                            value: '`/upcoming` - Upcoming movies\n`/nowplaying` - Movies in theaters\n`/airingtoday` - TV shows on today',
+                            inline: false
+                        },
+                        {
+                            name: 'Random Pick',
+                            value: '`/random type:Movie` - Can\'t decide? Let me pick something for you!',
+                            inline: false
+                        },
+                        {
+                            name: 'How It Works',
+                            value: 'Just use the commands above. When I show results, you can:\n- Use the dropdown menu to select what interests you\n- Click Next/Previous to browse more results\n- Click Watch to get streaming links\n\nNo IDs or complicated stuff needed!',
+                            inline: false
+                        }
+                    )
+                    .setFooter({ text: 'All content powered by TMDB and Vyla API' });
+
+                await interaction.editReply({ embeds: [embed] });
+                break;
+            }
+
             case 'search': {
-                const query = options.getString('query');
+                const query = options.getString('title');
                 const response = await api.get(`/search?q=${encodeURIComponent(query)}`);
                 const results = response.data.results || [];
 
                 if (results.length === 0) {
-                    await interaction.editReply('No results found for your search.');
+                    await interaction.editReply(`No results found for "${query}". Try a different search term.`);
                     return;
                 }
 
-                const embeds = results.slice(0, 5).map(item =>
-                    createMediaEmbed(item, item.media_type || 'movie')
+                const sessionId = Date.now().toString();
+                userSessions.set(sessionId, {
+                    type: 'search',
+                    results: results,
+                    query: query
+                });
+
+                const embeds = results.slice(0, 10).map((item, index) =>
+                    createMediaEmbed(item, item.media_type || 'movie', index + 1)
                 );
 
+                const components = [createSelectionButtons(sessionId, results)];
+
+                if (results.length > 10) {
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `search_${sessionId}`));
+                }
+
                 await interaction.editReply({
-                    content: `Found ${results.length} results for "${query}":`,
-                    embeds
+                    content: `Found ${results.length} results for "${query}". Select one to see details:`,
+                    embeds,
+                    components
                 });
-                break;
-            }
 
-            case 'movie': {
-                const id = options.getInteger('id');
-                const response = await api.get(`/details/movie/${id}`);
-                const embed = createDetailedEmbed(response.data, 'movie');
-
-                const row = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setLabel('Watch Now')
-                            .setStyle(ButtonStyle.Link)
-                            .setURL(`https://vidsrc.xyz/embed/movie/${id}`),
-                        new ButtonBuilder()
-                            .setLabel('TMDB Page')
-                            .setStyle(ButtonStyle.Link)
-                            .setURL(`https://www.themoviedb.org/movie/${id}`)
-                    );
-
-                await interaction.editReply({ embeds: [embed], components: [row] });
-                break;
-            }
-
-            case 'tv': {
-                const id = options.getInteger('id');
-                const response = await api.get(`/details/tv/${id}`);
-                const embed = createDetailedEmbed(response.data, 'tv');
-
-                const row = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setLabel('TMDB Page')
-                            .setStyle(ButtonStyle.Link)
-                            .setURL(`https://www.themoviedb.org/tv/${id}`)
-                    );
-
-                await interaction.editReply({ embeds: [embed], components: [row] });
+                setTimeout(() => userSessions.delete(sessionId), 600000);
                 break;
             }
 
@@ -439,18 +356,34 @@ client.on('interactionCreate', async interaction => {
                 const trendingSection = sections.find(s => s.title.includes('Trending'));
 
                 if (!trendingSection || !trendingSection.items) {
-                    await interaction.editReply('Could not fetch trending content.');
+                    await interaction.editReply('Could not fetch trending content right now.');
                     return;
                 }
 
-                const embeds = trendingSection.items.slice(0, 5).map(item =>
-                    createMediaEmbed(item, item.media_type || 'movie')
+                const results = trendingSection.items;
+                const sessionId = Date.now().toString();
+                userSessions.set(sessionId, {
+                    type: 'trending',
+                    results: results
+                });
+
+                const embeds = results.slice(0, 10).map((item, index) =>
+                    createMediaEmbed(item, item.media_type || 'movie', index + 1)
                 );
 
+                const components = [createSelectionButtons(sessionId, results)];
+
+                if (results.length > 10) {
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `trending_${sessionId}`));
+                }
+
                 await interaction.editReply({
-                    content: 'Trending Now:',
-                    embeds
+                    content: 'Trending now - Select one to see details:',
+                    embeds,
+                    components
                 });
+
+                setTimeout(() => userSessions.delete(sessionId), 600000);
                 break;
             }
 
@@ -461,147 +394,34 @@ client.on('interactionCreate', async interaction => {
                 const results = response.data.results || [];
 
                 if (results.length === 0) {
-                    await interaction.editReply('Could not fetch popular content.');
+                    await interaction.editReply('Could not fetch popular content right now.');
                     return;
                 }
 
-                const embeds = results.slice(0, 5).map(item =>
-                    createMediaEmbed(item, type)
+                const sessionId = Date.now().toString();
+                userSessions.set(sessionId, {
+                    type: 'popular',
+                    results: results,
+                    contentType: type
+                });
+
+                const embeds = results.slice(0, 10).map((item, index) =>
+                    createMediaEmbed(item, type, index + 1)
                 );
 
-                await interaction.editReply({
-                    content: `Popular ${type === 'movie' ? 'Movies' : 'TV Shows'}:`,
-                    embeds
-                });
-                break;
-            }
+                const components = [createSelectionButtons(sessionId, results)];
 
-            case 'genres': {
-                const type = options.getString('type');
-                const genreName = options.getString('genre').toLowerCase();
-
-                const genreId = Object.entries(GENRE_MAP[type]).find(
-                    ([id, name]) => name.toLowerCase() === genreName
-                )?.[0];
-
-                if (!genreId) {
-                    await interaction.editReply(`Genre not found. Available genres: ${Object.values(GENRE_MAP[type]).join(', ')}`);
-                    return;
+                if (results.length > 10) {
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `popular_${sessionId}`));
                 }
-
-                const response = await api.get(`/genres/${type}/${genreId}`);
-                const results = response.data.results || [];
-
-                if (results.length === 0) {
-                    await interaction.editReply('No content found for this genre.');
-                    return;
-                }
-
-                const embeds = results.slice(0, 5).map(item =>
-                    createMediaEmbed(item, type)
-                );
 
                 await interaction.editReply({
-                    content: `${GENRE_MAP[type][genreId]} ${type === 'movie' ? 'Movies' : 'TV Shows'}:`,
-                    embeds
-                });
-                break;
-            }
-
-            case 'cast': {
-                const id = options.getInteger('id');
-                const response = await api.get(`/cast/${id}`);
-                const embed = createCastEmbed(response.data);
-
-                await interaction.editReply({ embeds: [embed] });
-                break;
-            }
-
-            case 'watch': {
-                const type = options.getString('type');
-                const id = options.getInteger('id');
-                const season = options.getInteger('season');
-                const episode = options.getInteger('episode');
-
-                let url = `/player/${type}/${id}`;
-                if (type === 'tv' && season && episode) {
-                    url += `?s=${season}&e=${episode}`;
-                }
-
-                const response = await api.get(url);
-                const sources = response.data.sources || [];
-
-                if (sources.length === 0) {
-                    await interaction.editReply('No streaming sources available.');
-                    return;
-                }
-
-                const embed = new EmbedBuilder()
-                    .setColor('#E50914')
-                    .setTitle('Streaming Sources Available')
-                    .setDescription(`Found ${sources.length} streaming sources for this content.`);
-
-                const topSources = sources.slice(0, 5);
-                topSources.forEach((source, index) => {
-                    embed.addFields({
-                        name: `Source ${index + 1}`,
-                        value: `[Watch Here](${source.stream_url})`,
-                        inline: true
-                    });
+                    content: `Popular ${type === 'movie' ? 'Movies' : 'TV Shows'} - Select one to see details:`,
+                    embeds,
+                    components
                 });
 
-                await interaction.editReply({ embeds: [embed] });
-                break;
-            }
-
-            case 'season': {
-                const tvId = options.getInteger('tvid');
-                const season = options.getInteger('season');
-
-                const response = await api.get(`/tv/${tvId}/season/${season}`);
-                const data = response.data.data;
-
-                const embed = new EmbedBuilder()
-                    .setColor('#E50914')
-                    .setTitle(`${data.name}`)
-                    .setDescription(data.overview || 'No description available')
-                    .addFields(
-                        { name: 'Episodes', value: data.episode_count?.toString() || 'N/A', inline: true },
-                        { name: 'Air Date', value: data.air_date || 'Unknown', inline: true }
-                    );
-
-                if (data.poster_path) {
-                    embed.setThumbnail(`https://image.tmdb.org/t/p/w342${data.poster_path}`);
-                }
-
-                if (data.episodes && data.episodes.length > 0) {
-                    const episodeList = data.episodes.slice(0, 10).map(ep =>
-                        `E${ep.episode_number}: ${ep.name} (${ep.rating || 'N/A'}/10)`
-                    ).join('\n');
-                    embed.addFields({ name: 'Episodes', value: episodeList, inline: false });
-                }
-
-                await interaction.editReply({ embeds: [embed] });
-                break;
-            }
-
-            case 'episode': {
-                const tvId = options.getInteger('tvid');
-                const season = options.getInteger('season');
-                const episode = options.getInteger('episode');
-
-                const response = await api.get(`/episodes/${tvId}/${season}/${episode}`);
-                const embed = createEpisodeEmbed(response.data, tvId, season, episode);
-
-                const row = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setLabel('Watch Episode')
-                            .setStyle(ButtonStyle.Link)
-                            .setURL(`https://vidsrc.xyz/embed/tv/${tvId}/${season}/${episode}`)
-                    );
-
-                await interaction.editReply({ embeds: [embed], components: [row] });
+                setTimeout(() => userSessions.delete(sessionId), 600000);
                 break;
             }
 
@@ -612,17 +432,61 @@ client.on('interactionCreate', async interaction => {
                 const results = response.data.results || [];
 
                 if (results.length === 0) {
-                    await interaction.editReply('Could not fetch top rated content.');
+                    await interaction.editReply('Could not fetch top rated content right now.');
                     return;
                 }
 
-                const embeds = results.slice(0, 5).map(item =>
-                    createMediaEmbed(item, type)
+                const sessionId = Date.now().toString();
+                userSessions.set(sessionId, {
+                    type: 'toprated',
+                    results: results,
+                    contentType: type
+                });
+
+                const embeds = results.slice(0, 10).map((item, index) =>
+                    createMediaEmbed(item, type, index + 1)
                 );
 
+                const components = [createSelectionButtons(sessionId, results)];
+
+                if (results.length > 10) {
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `toprated_${sessionId}`));
+                }
+
                 await interaction.editReply({
-                    content: `Top Rated ${type === 'movie' ? 'Movies' : 'TV Shows'}:`,
-                    embeds
+                    content: `Top Rated ${type === 'movie' ? 'Movies' : 'TV Shows'} - Select one to see details:`,
+                    embeds,
+                    components
+                });
+
+                setTimeout(() => userSessions.delete(sessionId), 600000);
+                break;
+            }
+
+            case 'genres': {
+                const type = options.getString('type');
+                const genreOptions = Object.entries(GENRE_MAP[type]).map(([id, name]) => ({
+                    label: name,
+                    value: `genre_${type}_${id}`,
+                    description: `Browse ${name} ${type === 'movie' ? 'movies' : 'TV shows'}`
+                }));
+
+                const rows = [];
+                for (let i = 0; i < genreOptions.length; i += 25) {
+                    rows.push(
+                        new ActionRowBuilder()
+                            .addComponents(
+                                new StringSelectMenuBuilder()
+                                    .setCustomId(`genre_select_${i}`)
+                                    .setPlaceholder(`Choose a genre ${i > 0 ? `(Part ${Math.floor(i / 25) + 1})` : ''}`)
+                                    .addOptions(genreOptions.slice(i, i + 25))
+                            )
+                    );
+                }
+
+                await interaction.editReply({
+                    content: `Select a genre to browse ${type === 'movie' ? 'movies' : 'TV shows'}:`,
+                    components: rows
                 });
                 break;
             }
@@ -632,18 +496,34 @@ client.on('interactionCreate', async interaction => {
                 const results = response.data.results || [];
 
                 if (results.length === 0) {
-                    await interaction.editReply('Could not fetch upcoming movies.');
+                    await interaction.editReply('Could not fetch upcoming movies right now.');
                     return;
                 }
 
-                const embeds = results.slice(0, 5).map(item =>
-                    createMediaEmbed(item, 'movie')
+                const sessionId = Date.now().toString();
+                userSessions.set(sessionId, {
+                    type: 'upcoming',
+                    results: results,
+                    contentType: 'movie'
+                });
+
+                const embeds = results.slice(0, 10).map((item, index) =>
+                    createMediaEmbed(item, 'movie', index + 1)
                 );
 
+                const components = [createSelectionButtons(sessionId, results)];
+
+                if (results.length > 10) {
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `upcoming_${sessionId}`));
+                }
+
                 await interaction.editReply({
-                    content: 'Upcoming Movies:',
-                    embeds
+                    content: 'Upcoming Movies - Select one to see details:',
+                    embeds,
+                    components
                 });
+
+                setTimeout(() => userSessions.delete(sessionId), 600000);
                 break;
             }
 
@@ -652,18 +532,34 @@ client.on('interactionCreate', async interaction => {
                 const results = response.data.results || [];
 
                 if (results.length === 0) {
-                    await interaction.editReply('Could not fetch now playing movies.');
+                    await interaction.editReply('Could not fetch movies in theaters right now.');
                     return;
                 }
 
-                const embeds = results.slice(0, 5).map(item =>
-                    createMediaEmbed(item, 'movie')
+                const sessionId = Date.now().toString();
+                userSessions.set(sessionId, {
+                    type: 'nowplaying',
+                    results: results,
+                    contentType: 'movie'
+                });
+
+                const embeds = results.slice(0, 10).map((item, index) =>
+                    createMediaEmbed(item, 'movie', index + 1)
                 );
 
+                const components = [createSelectionButtons(sessionId, results)];
+
+                if (results.length > 10) {
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `nowplaying_${sessionId}`));
+                }
+
                 await interaction.editReply({
-                    content: 'Now Playing in Theaters:',
-                    embeds
+                    content: 'Now Playing in Theaters - Select one to see details:',
+                    embeds,
+                    components
                 });
+
+                setTimeout(() => userSessions.delete(sessionId), 600000);
                 break;
             }
 
@@ -672,18 +568,34 @@ client.on('interactionCreate', async interaction => {
                 const results = response.data.results || [];
 
                 if (results.length === 0) {
-                    await interaction.editReply('Could not fetch airing today shows.');
+                    await interaction.editReply('Could not fetch shows airing today right now.');
                     return;
                 }
 
-                const embeds = results.slice(0, 5).map(item =>
-                    createMediaEmbed(item, 'tv')
+                const sessionId = Date.now().toString();
+                userSessions.set(sessionId, {
+                    type: 'airingtoday',
+                    results: results,
+                    contentType: 'tv'
+                });
+
+                const embeds = results.slice(0, 10).map((item, index) =>
+                    createMediaEmbed(item, 'tv', index + 1)
                 );
 
+                const components = [createSelectionButtons(sessionId, results)];
+
+                if (results.length > 10) {
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `airingtoday_${sessionId}`));
+                }
+
                 await interaction.editReply({
-                    content: 'TV Shows Airing Today:',
-                    embeds
+                    content: 'Airing Today - Select one to see details:',
+                    embeds,
+                    components
                 });
+
+                setTimeout(() => userSessions.delete(sessionId), 600000);
                 break;
             }
 
@@ -694,23 +606,28 @@ client.on('interactionCreate', async interaction => {
                 const results = response.data.results || [];
 
                 if (results.length === 0) {
-                    await interaction.editReply('Could not fetch random content.');
+                    await interaction.editReply('Could not get random content right now.');
                     return;
                 }
 
                 const randomItem = results[Math.floor(Math.random() * results.length)];
-                const embed = createMediaEmbed(randomItem, type);
+                const detailsResponse = await api.get(`/details/${type}/${randomItem.id}`);
+                const embed = createDetailedEmbed(detailsResponse.data, type);
 
                 const row = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
-                            .setCustomId('random_again')
+                            .setCustomId(`watch_${type}_${randomItem.id}`)
+                            .setLabel('Watch Now')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId(`random_${type}`)
                             .setLabel('Get Another Random')
                             .setStyle(ButtonStyle.Primary)
                     );
 
                 await interaction.editReply({
-                    content: `Random ${type === 'movie' ? 'Movie' : 'TV Show'}:`,
+                    content: `Random ${type === 'movie' ? 'Movie' : 'TV Show'} Pick:`,
                     embeds: [embed],
                     components: [row]
                 });
@@ -728,25 +645,307 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-
-    if (interaction.customId === 'random_again') {
+    if (interaction.isStringSelectMenu()) {
         await interaction.deferUpdate();
 
-        const type = interaction.message.content.includes('Movie') ? 'movie' : 'tv';
-        const endpoint = type === 'movie' ? '/movie/popular' : '/tv/popular';
+        if (interaction.customId.startsWith('selection_')) {
+            const sessionId = interaction.customId.replace('selection_', '');
+            const session = userSessions.get(sessionId);
+
+            if (!session) {
+                await interaction.followUp({ content: 'Session expired. Please run the command again.', ephemeral: true });
+                return;
+            }
+
+            const selectedValue = interaction.values[0];
+            const index = parseInt(selectedValue.split('_')[2]);
+            const item = session.results[index];
+
+            const type = item.media_type || session.contentType || 'movie';
+
+            try {
+                const detailsResponse = await api.get(`/details/${type}/${item.id}`);
+                const embed = createDetailedEmbed(detailsResponse.data, type);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`watch_${type}_${item.id}`)
+                            .setLabel('Watch Now')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId('back_to_results')
+                            .setLabel('Back to Results')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                await interaction.editReply({
+                    content: '',
+                    embeds: [embed],
+                    components: [row]
+                });
+            } catch (error) {
+                await interaction.followUp({ content: 'Could not load details. Please try again.', ephemeral: true });
+            }
+        }
+
+        if (interaction.customId.startsWith('genre_select_')) {
+            const selectedValue = interaction.values[0];
+            const parts = selectedValue.split('_');
+            const type = parts[1];
+            const genreId = parts[2];
+
+            try {
+                const response = await api.get(`/genres/${type}/${genreId}`);
+                const results = response.data.results || [];
+
+                if (results.length === 0) {
+                    await interaction.followUp({ content: 'No content found for this genre.', ephemeral: true });
+                    return;
+                }
+
+                const sessionId = Date.now().toString();
+                userSessions.set(sessionId, {
+                    type: 'genre',
+                    results: results,
+                    contentType: type
+                });
+
+                const embeds = results.slice(0, 10).map((item, index) =>
+                    createMediaEmbed(item, type, index + 1)
+                );
+
+                const components = [createSelectionButtons(sessionId, results)];
+
+                if (results.length > 10) {
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `genre_${sessionId}`));
+                }
+
+                await interaction.editReply({
+                    content: `${GENRE_MAP[type][genreId]} ${type === 'movie' ? 'Movies' : 'TV Shows'} - Select one to see details:`,
+                    embeds,
+                    components
+                });
+
+                setTimeout(() => userSessions.delete(sessionId), 600000);
+            } catch (error) {
+                await interaction.followUp({ content: 'Could not load genre content. Please try again.', ephemeral: true });
+            }
+        }
+    }
+
+    if (interaction.isButton()) {
+        await interaction.deferUpdate();
+
+        if (interaction.customId === 'back_to_results') {
+            await interaction.editReply({
+                content: 'Use the command again to browse results.',
+                embeds: [],
+                components: []
+            });
+        }
+
+        if (interaction.customId.startsWith('watch_')) {
+            const parts = interaction.customId.split('_');
+            const type = parts[1];
+            const id = parts[2];
+
+            try {
+                if (type === 'tv') {
+                    const tvResponse = await api.get(`/details/tv/${id}`);
+                    const seasons = tvResponse.data.info.number_of_seasons;
+
+                    const seasonOptions = Array.from({ length: Math.min(seasons, 25) }, (_, i) => ({
+                        label: `Season ${i + 1}`,
+                        value: `season_${id}_${i + 1}`,
+                        description: `View episodes for Season ${i + 1}`
+                    }));
+
+                    const row = new ActionRowBuilder()
+                        .addComponents(
+                            new StringSelectMenuBuilder()
+                                .setCustomId('season_select')
+                                .setPlaceholder('Choose a season')
+                                .addOptions(seasonOptions)
+                        );
+
+                    await interaction.editReply({
+                        content: 'Select a season to see episodes:',
+                        components: [row]
+                    });
+                } else {
+                    const playerResponse = await api.get(`/player/${type}/${id}`);
+                    const sources = playerResponse.data.sources || [];
+
+                    if (sources.length === 0) {
+                        await interaction.followUp({ content: 'No streaming sources available right now.', ephemeral: true });
+                        return;
+                    }
+
+                    const embed = new EmbedBuilder()
+                        .setColor('#fcfcfcff')
+                        .setTitle('Streaming Sources Available')
+                        .setDescription('Click on any link below to start watching:');
+
+                    const buttons = [];
+                    sources.slice(0, 5).forEach((source, index) => {
+                        const sourceName = source.stream_url.includes('vidsrc') ? 'VidSrc' :
+                            source.stream_url.includes('vidlink') ? 'VidLink' :
+                                source.stream_url.includes('vidsrc.cc') ? 'VidSrc Pro' :
+                                    source.stream_url.includes('2embed') ? '2Embed' :
+                                        `Source ${index + 1}`;
+
+                        buttons.push(
+                            new ButtonBuilder()
+                                .setLabel(sourceName)
+                                .setStyle(ButtonStyle.Link)
+                                .setURL(source.stream_url)
+                        );
+                    });
+
+                    const rows = [];
+                    for (let i = 0; i < buttons.length; i += 5) {
+                        rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+                    }
+
+                    await interaction.editReply({
+                        embeds: [embed],
+                        components: rows
+                    });
+                }
+            } catch (error) {
+                await interaction.followUp({ content: 'Could not load streaming sources. Please try again.', ephemeral: true });
+            }
+        }
+
+        if (interaction.customId.startsWith('random_')) {
+            const type = interaction.customId.split('_')[1];
+            const endpoint = type === 'movie' ? '/movie/popular' : '/tv/popular';
+
+            try {
+                const response = await api.get(`/list?endpoint=${endpoint}`);
+                const results = response.data.results || [];
+                const randomItem = results[Math.floor(Math.random() * results.length)];
+
+                const detailsResponse = await api.get(`/details/${type}/${randomItem.id}`);
+                const embed = createDetailedEmbed(detailsResponse.data, type);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`watch_${type}_${randomItem.id}`)
+                            .setLabel('Watch Now')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId(`random_${type}`)
+                            .setLabel('Get Another Random')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+
+                await interaction.editReply({
+                    embeds: [embed],
+                    components: [row]
+                });
+            } catch (error) {
+                await interaction.followUp({ content: 'Could not get random content. Please try again.', ephemeral: true });
+            }
+        }
+
+        if (interaction.customId.includes('_prev_') || interaction.customId.includes('_next_')) {
+            await interaction.followUp({ content: 'Pagination coming soon! Use the dropdown menu to select items.', ephemeral: true });
+        }
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'season_select') {
+        await interaction.deferUpdate();
+
+        const selectedValue = interaction.values[0];
+        const parts = selectedValue.split('_');
+        const tvId = parts[1];
+        const seasonNum = parts[2];
 
         try {
-            const response = await api.get(`/list?endpoint=${endpoint}`);
-            const results = response.data.results || [];
-            const randomItem = results[Math.floor(Math.random() * results.length)];
-            const embed = createMediaEmbed(randomItem, type);
+            const seasonResponse = await api.get(`/tv/${tvId}/season/${seasonNum}`);
+            const episodes = seasonResponse.data.data.episodes || [];
+
+            if (episodes.length === 0) {
+                await interaction.followUp({ content: 'No episodes found for this season.', ephemeral: true });
+                return;
+            }
+
+            const episodeOptions = episodes.slice(0, 25).map(ep => ({
+                label: `E${ep.episode_number}: ${ep.name.substring(0, 80)}`,
+                value: `episode_${tvId}_${seasonNum}_${ep.episode_number}`,
+                description: `${ep.rating || 'N/A'}/10 - ${ep.air_date || 'Unknown'}`
+            }));
+
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new StringSelectMenuBuilder()
+                        .setCustomId('episode_select')
+                        .setPlaceholder('Choose an episode to watch')
+                        .addOptions(episodeOptions)
+                );
 
             await interaction.editReply({
-                embeds: [embed]
+                content: `Season ${seasonNum} Episodes - Select one to watch:`,
+                components: [row]
             });
         } catch (error) {
-            console.error('Error getting random item:', error);
+            await interaction.followUp({ content: 'Could not load episodes. Please try again.', ephemeral: true });
+        }
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'episode_select') {
+        await interaction.deferUpdate();
+
+        const selectedValue = interaction.values[0];
+        const parts = selectedValue.split('_');
+        const tvId = parts[1];
+        const season = parts[2];
+        const episode = parts[3];
+
+        try {
+            const playerResponse = await api.get(`/player/tv/${tvId}?s=${season}&e=${episode}`);
+            const sources = playerResponse.data.sources || [];
+
+            if (sources.length === 0) {
+                await interaction.followUp({ content: 'No streaming sources available for this episode.', ephemeral: true });
+                return;
+            }
+
+            const embed = new EmbedBuilder()
+                .setColor('#fcfcfcff')
+                .setTitle(`Season ${season} Episode ${episode}`)
+                .setDescription('Click on any link below to start watching:');
+
+            const buttons = [];
+            sources.slice(0, 5).forEach((source, index) => {
+                const sourceName = source.stream_url.includes('vidsrc') ? 'VidSrc' :
+                    source.stream_url.includes('vidlink') ? 'VidLink' :
+                        source.stream_url.includes('vidsrc.cc') ? 'VidSrc Pro' :
+                            source.stream_url.includes('2embed') ? '2Embed' :
+                                `Source ${index + 1}`;
+
+                buttons.push(
+                    new ButtonBuilder()
+                        .setLabel(sourceName)
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(source.stream_url)
+                );
+            });
+
+            const rows = [];
+            for (let i = 0; i < buttons.length; i += 5) {
+                rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+            }
+
+            await interaction.editReply({
+                embeds: [embed],
+                components: rows
+            });
+        } catch (error) {
+            await interaction.followUp({ content: 'Could not load streaming sources. Please try again.', ephemeral: true });
         }
     }
 });

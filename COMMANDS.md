@@ -1,246 +1,332 @@
 # Command Reference
 
-Complete list of all available commands with examples.
+Quick reference for all Vyla Bot commands. No IDs required - everything uses simple names and menus.
 
-## Search & Discovery
+## Getting Started
+
+### /help
+Display complete help guide with examples.
+
+Usage:
+```
+/help
+```
+
+Shows you how to use every feature of the bot with clear examples.
+
+## Searching and Discovery
 
 ### /search
-Search for movies and TV shows
-- query: Search term (required)
+Search for movies and TV shows by name.
+
+Usage:
+```
+/search title:movie or show name
+```
 
 Examples:
 ```
-/search query:inception
-/search query:breaking bad
-/search query:marvel
+/search title:avengers
+/search title:breaking bad
+/search title:inception
+/search title:game of thrones
 ```
 
-### /trending
-Get currently trending content
+What you get:
+- Up to 10 results with posters
+- Ratings and release years
+- Dropdown menu to select what you want
+- Full details when you click
 
-Example:
+### /trending
+See what is hot right now.
+
+Usage:
 ```
 /trending
 ```
 
-### /random
-Get a random movie or TV show
-- type: Movie or TV Show (required)
+What you get:
+- Currently trending movies and TV shows
+- Dropdown menu to browse
+- Select anything to see details
 
-Examples:
+### /random
+Get a random recommendation when you can't decide.
+
+Usage:
 ```
 /random type:Movie
 /random type:TV Show
 ```
 
-## Content Details
+What you get:
+- Random pick with full details
+- "Watch Now" button
+- "Get Another Random" button to keep discovering
 
-### /movie
-Get detailed movie information
-- id: TMDB Movie ID (required)
-
-Example:
-```
-/movie id:299534
-```
-
-### /tv
-Get detailed TV show information
-- id: TMDB TV Show ID (required)
-
-Example:
-```
-/tv id:1399
-```
-
-### /cast
-Get actor or crew member information
-- id: TMDB Person ID (required)
-
-Example:
-```
-/cast id:3223
-```
-
-## TV Show Episodes
-
-### /season
-Get TV show season details
-- tvid: TMDB TV Show ID (required)
-- season: Season number (required)
-
-Example:
-```
-/season tvid:1399 season:1
-```
-
-### /episode
-Get specific episode details
-- tvid: TMDB TV Show ID (required)
-- season: Season number (required)
-- episode: Episode number (required)
-
-Example:
-```
-/episode tvid:1399 season:1 episode:1
-```
-
-## Popular Content
+## Browse by Category
 
 ### /popular
-Get popular movies or TV shows
-- type: Movies or TV Shows (required)
+Browse popular movies or TV shows.
 
-Examples:
+Usage:
 ```
 /popular type:Movies
 /popular type:TV Shows
 ```
 
-### /toprated
-Get top rated content
-- type: Movies or TV Shows (required)
+What you get:
+- Most popular content right now
+- Dropdown menu to select
+- Ratings and years shown
 
-Examples:
+### /toprated
+See the highest rated content.
+
+Usage:
 ```
 /toprated type:Movies
 /toprated type:TV Shows
 ```
 
-### /upcoming
-Get upcoming movies
+What you get:
+- Best rated movies or shows
+- Quality content guaranteed
+- Select from dropdown menu
 
-Example:
+### /upcoming
+See upcoming movie releases.
+
+Usage:
 ```
 /upcoming
 ```
 
-### /nowplaying
-Get movies in theaters now
+What you get:
+- Movies coming to theaters soon
+- Release dates shown
+- Select to see full details
 
-Example:
+### /nowplaying
+See movies currently in theaters.
+
+Usage:
 ```
 /nowplaying
 ```
 
-### /airingtoday
-Get TV shows airing today
+What you get:
+- Movies playing now
+- Current theatrical releases
+- Select and watch
 
-Example:
+### /airingtoday
+See TV shows with new episodes today.
+
+Usage:
 ```
 /airingtoday
 ```
 
-## Genre Browsing
+What you get:
+- Shows airing today
+- Latest episodes
+- Select to watch
+
+## Browse by Genre
 
 ### /genres
-Browse content by genre
-- type: Movies or TV Shows (required)
-- genre: Genre name (required)
+Browse content by genre with interactive menu.
 
-Examples:
+Usage:
 ```
-/genres type:Movies genre:action
-/genres type:Movies genre:comedy
-/genres type:TV Shows genre:drama
-/genres type:TV Shows genre:sci-fi & fantasy
+/genres type:Movies
+/genres type:TV Shows
 ```
 
-Movie Genres:
-- action
-- adventure
-- animation
-- comedy
-- crime
-- documentary
-- drama
-- fantasy
-- horror
-- romance
-- science fiction
-- thriller
-- war
-- western
+What you get:
+- Complete list of all genres
+- Just select from dropdown menu
+- No need to remember genre names
 
-TV Show Genres:
-- action & adventure
-- animation
-- comedy
-- crime
-- documentary
-- drama
-- family
-- kids
-- mystery
-- news
-- reality
-- sci-fi & fantasy
-- soap
-- talk
-- war & politics
-- western
+Available Movie Genres:
+- Action
+- Adventure
+- Animation
+- Comedy
+- Crime
+- Documentary
+- Drama
+- Fantasy
+- Horror
+- Romance
+- Science Fiction
+- Thriller
+- War
+- Western
 
-## Streaming
+Available TV Genres:
+- Action & Adventure
+- Animation
+- Comedy
+- Crime
+- Documentary
+- Drama
+- Family
+- Kids
+- Mystery
+- News
+- Reality
+- Sci-Fi & Fantasy
+- Soap
+- Talk
+- War & Politics
+- Western
 
-### /watch
-Get streaming links
-- type: Movie or TV Show (required)
-- id: TMDB ID (required)
-- season: Season number (TV shows only)
-- episode: Episode number (TV shows only)
+## How Commands Work
 
-Examples:
+### Basic Flow
+
+1. Run any command
+2. Bot shows results in dropdown menu
+3. Select what interests you
+4. See full details
+5. Click "Watch Now"
+6. Get streaming links as buttons
+7. Click any source to watch
+
+### For Movies
+
 ```
-/watch type:Movie id:299534
-/watch type:TV Show id:1399 season:1 episode:1
-```
-
-## Finding IDs
-
-All IDs can be found using the /search command.
-
-Step 1: Search for content
-```
-/search query:avengers endgame
-```
-
-Step 2: Look for the ID field in the results
-
-Step 3: Use that ID in other commands
-```
-/movie id:299534
+/search title:inception
+> Select "Inception (2010)" from dropdown
+> Click "Watch Now"
+> Click any streaming source button
+> Start watching
 ```
 
-## Response Information
+### For TV Shows
 
-All commands return:
-- Rich embeds with images
-- Ratings and metadata
-- Clickable links
-- High quality posters and backdrops
+```
+/search title:breaking bad
+> Select "Breaking Bad" from dropdown
+> Click "Watch Now"
+> Select season from dropdown
+> Select episode from dropdown
+> Click streaming source button
+> Start watching
+```
 
-Search results show up to 5 items
-Most list commands show up to 5 items
-Episode lists show up to 10 episodes
+### For Genres
+
+```
+/genres type:Movies
+> Select "Action" from dropdown
+> Bot shows action movies
+> Select movie from dropdown
+> Click "Watch Now"
+> Click streaming source
+> Start watching
+```
+
+## Interactive Elements
+
+### Dropdown Menus
+Every result list shows as a dropdown menu where you can select what you want.
+
+### Watch Now Button
+Appears on all detail pages. Click to get streaming sources.
+
+### Streaming Source Buttons
+Multiple sources appear as clickable buttons. Click any to watch.
+
+### Season Selection
+For TV shows, select your season from a dropdown menu.
+
+### Episode Selection
+Select specific episodes from a dropdown menu showing ratings and air dates.
+
+### Get Another Random
+On random picks, click this to get a different recommendation.
+
+### Back to Results
+Return to browsing after viewing details.
 
 ## Tips
 
-Use /search first to discover content IDs
+### Best Practices
+- Start with /help if new to the bot
+- Use /search when you know what you want
+- Use /trending to see what is hot
+- Use /genres to explore categories
+- Use /random when you can't decide
 
-Genre names are case insensitive
+### Search Tips
+- Partial names work: "avengers" finds all Avengers movies
+- Works for both movies and TV shows
+- Case insensitive: "BATMAN" = "batman"
 
-All commands respond within a few seconds
+### Browse Tips
+- Results show 10 items at a time
+- Each shows rating and year
+- Dropdown makes selection easy
 
-Streaming sources include 34 different providers
+### TV Show Tips
+- All seasons available in dropdown
+- Episodes show ratings and air dates
+- Easy to binge watch series
 
-Images load from TMDB CDN for fast display
+## Common Workflows
 
-TV shows require season and episode numbers for /watch
+### Discover New Movies
+```
+/trending
+> Browse trending content
+> Select something interesting
+> Watch
+```
 
-Movie IDs and TV IDs are different even for the same title
+### Find Specific Show
+```
+/search title:show name
+> Select from results
+> Pick season and episode
+> Watch
+```
 
-Use /random when you can't decide what to watch
+### Explore Genre
+```
+/genres type:Movies
+> Pick a genre
+> Browse results
+> Select and watch
+```
 
-Check /trending daily for fresh content
+### Quick Watch
+```
+/random type:Movie
+> If you like it, watch
+> If not, click "Get Another Random"
+```
 
-Browse /genres to discover new shows in your favorite categories
+## No Complicated Stuff
+
+You will never need to:
+- Type or remember IDs
+- Know genre codes
+- Use complicated syntax
+- Visit external websites
+- Copy and paste URLs
+
+Everything is done through simple commands and clicking menus.
+
+## Sessions
+
+Your browsing session stays active for 10 minutes, giving you time to browse and select without rushing.
+
+## Response Times
+
+Most commands respond in 1-3 seconds. Complex queries might take up to 5 seconds.
+
+All commands work the same way - simple, fast, and user-friendly.

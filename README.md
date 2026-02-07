@@ -1,10 +1,31 @@
 # Vyla Discord Bot
 
-A complete Discord bot integration for the Vyla Media API. Search, browse, and get detailed information about movies and TV shows directly in Discord.
+A super user-friendly Discord bot for discovering and watching movies and TV shows. No IDs, no complicated commands - just simple menus and clicks.
 
-## Features
+## Key Features
 
-Complete integration of all Vyla API features including search, detailed information, trending content, genres, cast information, streaming sources, TV seasons and episodes, and more.
+- **No IDs Required** - Search by name, select from menus, done
+- **Interactive Menus** - All results in dropdown menus
+- **One-Click Watching** - Streaming links as clickable buttons  
+- **Smart Search** - Find any movie or show by name
+- **Genre Discovery** - Browse all genres with dropdown selection
+- **TV Show Navigation** - Easy season and episode selection
+- **34 Streaming Sources** - Multiple options for every title
+- **Help System** - Built-in `/help` command explains everything
+
+## Quick Example
+
+```
+You: /search title:inception
+Bot: [Shows results in dropdown menu]
+You: [Select "Inception (2010)"]
+Bot: [Shows full details with Watch Now button]
+You: [Click "Watch Now"]
+Bot: [Shows 5 streaming source buttons]
+You: [Click any source to watch]
+```
+
+That's it. No IDs, no typing long commands, just clicking menus.
 
 ## Prerequisites
 
@@ -95,408 +116,147 @@ You should see a message saying "Logged in as YourBotName#1234" and "Slash comma
 
 The bot is now online and ready to use in your Discord server.
 
+## User Experience
+
+### No Learning Curve
+
+Users don't need to:
+- Remember or type IDs
+- Know genre names
+- Learn complicated syntax
+- Visit external websites
+- Read long documentation
+
+Everything is self-explanatory with `/help` and interactive menus.
+
+### Simple Workflow
+
+**Finding Content:**
+```
+Type command > Select from dropdown > Done
+```
+
+**Watching Content:**
+```
+Search > Select > Click "Watch Now" > Click source > Watch
+```
+
+**TV Shows:**
+```
+Search > Select show > Pick season > Pick episode > Watch
+```
+
+### Interactive Elements
+
+- **Dropdown Menus** - All results and selections
+- **Buttons** - Watch Now, streaming sources, random picks
+- **Sessions** - 10-minute browsing sessions
+- **Visual Feedback** - Posters, ratings, years shown
+
+### Mobile Friendly
+
+Works perfectly on Discord mobile app with same easy-to-use interface.
+
 ## Available Commands
 
-All commands are slash commands. Type `/` in Discord to see the full list.
+All commands use simple syntax with interactive menus. No IDs needed.
 
-### Search Commands
+### Core Commands
 
-**`/search <query>`**
-Search for movies and TV shows.
+**`/help`** - Complete guide with examples
 
-Example: `/search avengers`
+**`/search title:name`** - Search movies and shows by name
+- Example: `/search title:avengers`
+- Shows results in dropdown menu
+- Select to see full details
 
-Returns up to 5 results with posters, ratings, and descriptions.
+**`/trending`** - See what is hot right now
+- Interactive dropdown to browse
+- Movies and TV shows together
 
-**`/random <type>`**
-Get a random movie or TV show.
+**`/popular type:Movies/TV Shows`** - Browse popular content
+- Example: `/popular type:Movies`
+- Dropdown menu to select
 
-Parameters:
-- type: Choose "Movie" or "TV Show"
+**`/toprated type:Movies/TV Shows`** - Highest rated content
+- Example: `/toprated type:TV Shows`
+- Quality content guaranteed
 
-Example: `/random type:Movie`
+**`/genres type:Movies/TV Shows`** - Browse by genre
+- Example: `/genres type:Movies`
+- Shows ALL genres in dropdown
+- No need to remember genre names
 
-Includes a button to get another random selection.
+**`/upcoming`** - Upcoming movie releases
 
-### Detailed Information Commands
+**`/nowplaying`** - Movies in theaters now
 
-**`/movie <id>`**
-Get complete details about a movie.
+**`/airingtoday`** - TV shows airing today
 
-Parameters:
-- id: TMDB Movie ID (found in search results)
+**`/random type:Movie/TV Show`** - Random recommendation
+- Example: `/random type:Movie`
+- "Get Another Random" button to keep discovering
 
-Example: `/movie id:299534`
+### How It Works
 
-Returns:
-- Full description
-- Rating and vote count
-- Release date and runtime
-- Budget and revenue
-- Genres
-- Top 5 cast members
-- Poster and backdrop images
-- Link to watch and TMDB page
+1. Use any command
+2. Select from dropdown menu
+3. Click "Watch Now"
+4. Click streaming source button
+5. Start watching
 
-**`/tv <id>`**
-Get complete details about a TV show.
-
-Parameters:
-- id: TMDB TV Show ID
-
-Example: `/tv id:1399`
-
-Returns:
-- Full description
-- Rating and vote count
-- First and last air dates
-- Number of seasons and episodes
-- Status (ongoing, ended, etc.)
-- Genres
-- Top 5 cast members
-- Poster and backdrop images
-- Link to TMDB page
-
-**`/cast <id>`**
-Get information about an actor or crew member.
-
-Parameters:
-- id: TMDB Person ID
-
-Example: `/cast id:3223`
-
-Returns:
-- Biography
-- Known for department
-- Birthday and birthplace
-- Notable works
-- Profile picture
-
-### TV Show Specific Commands
-
-**`/season <tvid> <season>`**
-Get detailed information about a specific season.
-
-Parameters:
-- tvid: TMDB TV Show ID
-- season: Season number
-
-Example: `/season tvid:1399 season:1`
-
-Returns:
-- Season overview
-- Episode count and air date
-- List of up to 10 episodes with ratings
-- Season poster
-
-**`/episode <tvid> <season> <episode>`**
-Get detailed information about a specific episode.
-
-Parameters:
-- tvid: TMDB TV Show ID
-- season: Season number
-- episode: Episode number
-
-Example: `/episode tvid:1399 season:1 episode:1`
-
-Returns:
-- Episode title and description
-- Air date and runtime
-- Rating
-- Directors and writers
-- Guest stars
-- Still image
-- Link to watch the episode
-
-### Discovery Commands
-
-**`/trending`**
-Get currently trending movies and TV shows.
-
-Example: `/trending`
-
-Returns 5 trending items from the Vyla API home feed.
-
-**`/popular <type>`**
-Get popular content.
-
-Parameters:
-- type: Choose "Movies" or "TV Shows"
-
-Example: `/popular type:Movies`
-
-Returns 5 popular items of the selected type.
-
-**`/toprated <type>`**
-Get top rated content.
-
-Parameters:
-- type: Choose "Movies" or "TV Shows"
-
-Example: `/toprated type:Movies`
-
-Returns 5 top rated items of the selected type.
-
-**`/upcoming`**
-Get upcoming movies.
-
-Example: `/upcoming`
-
-Returns 5 upcoming theatrical releases.
-
-**`/nowplaying`**
-Get movies currently playing in theaters.
-
-Example: `/nowplaying`
-
-Returns 5 movies currently in theaters.
-
-**`/airingtoday`**
-Get TV shows airing today.
-
-Example: `/airingtoday`
-
-Returns 5 TV shows with episodes airing today.
-
-### Genre Browsing Commands
-
-**`/genres <type> <genre>`**
-Browse content by genre.
-
-Parameters:
-- type: Choose "Movies" or "TV Shows"
-- genre: Genre name (case insensitive)
-
-Example: `/genres type:Movies genre:action`
-
-Returns 5 items from the selected genre.
-
-Available Movie Genres:
-- Action
-- Adventure
-- Animation
-- Comedy
-- Crime
-- Documentary
-- Drama
-- Fantasy
-- Horror
-- Romance
-- Science Fiction
-- Thriller
-- War
-- Western
-
-Available TV Show Genres:
-- Action & Adventure
-- Animation
-- Comedy
-- Crime
-- Documentary
-- Drama
-- Family
-- Kids
-- Mystery
-- News
-- Reality
-- Sci-Fi & Fantasy
-- Soap
-- Talk
-- War & Politics
-- Western
-
-### Streaming Commands
-
-**`/watch <type> <id> [season] [episode]`**
-Get streaming links for movies or TV show episodes.
-
-Parameters:
-- type: Choose "Movie" or "TV Show"
-- id: TMDB ID
-- season: Season number (required for TV shows)
-- episode: Episode number (required for TV shows)
-
-Example for movie: `/watch type:Movie id:299534`
-Example for TV: `/watch type:TV Show id:1399 season:1 episode:1`
-
-Returns up to 5 streaming source links from 34 available providers including:
-- VidSrc
-- VidLink
-- VidEasy (4K)
-- VidFast (4K)
-- P-Stream
-- MultiEmbed
-- And 28+ more sources
-
-## How to Find TMDB IDs
-
-Use the `/search` command to find content. The search results include the TMDB ID in the embed footer.
-
-For example:
-1. Run `/search query:game of thrones`
-2. Look at the "ID" field in the search results
-3. Use that ID with other commands like `/tv id:1399`
-
-## Command Response Format
-
-All commands return rich embeds with:
-- Color-coded embed (Netflix red theme)
-- Title and description
-- Relevant metadata (rating, release date, etc.)
-- High-quality images (posters, backdrops, stills)
-- Clickable links where applicable
-- Interactive buttons for certain commands
+For TV shows:
+1. Select show from dropdown
+2. Pick season from dropdown  
+3. Pick episode from dropdown
+4. Click streaming source
+5. Watch
 
 ## Troubleshooting
 
-### Bot is offline
-- Check that you ran `npm start`
-- Verify your bot token in the `.env` file is correct
-- Make sure you saved the `.env` file after editing
+### Bot Not Responding
+- Check bot is online in server member list
+- Verify bot has proper permissions
+- Wait a moment and try again
 
-### Commands not showing up
-- Wait a few minutes after starting the bot
-- Make sure the bot has "Use Application Commands" permission
-- Try kicking and re-inviting the bot with the OAuth2 URL
+### Commands Not Showing
+- Wait 1-2 minutes after bot starts
+- Check bot has "Use Application Commands" permission
+- Try typing `/` to see if commands appear
 
-### "Unknown interaction" error
-- The bot might have restarted - try the command again
-- Check that the bot is online in your server
+### No Results from Search
+- Try different search terms
+- Use simpler keywords
+- Check spelling
 
-### API errors
-- The Vyla API might be experiencing issues
-- Wait a few moments and try again
-- Check https://vyla-api.vercel.app/api/health
+### Session Expired
+- This happens after 10 minutes
+- Just run the command again
+- No data is lost
 
-### No results from search
-- Try a different search term
-- Make sure you spelled the title correctly
-- Some very obscure content might not be in TMDB
+### Streaming Sources Not Working
+- Try a different source button
+- Some content may have limited sources
+- Check your internet connection
 
-## Development Mode
+## Technical Details
 
-To run the bot in development mode with auto-restart on file changes:
-
-```bash
-npm run dev
-```
-
-This uses nodemon to automatically restart the bot when you make changes to the code.
-
-## Customization
-
-### Changing the Embed Color
-
-In `vyla-discord-bot.js`, find all instances of:
-
-```javascript
-.setColor('#E50914')
-```
-
-Replace `#E50914` with any hex color code you prefer.
-
-### Changing the Number of Results
-
-Find instances like:
-
-```javascript
-.slice(0, 5)
-```
-
-Change the `5` to show more or fewer results. Discord has a limit of 10 embeds per message.
-
-### Adding Custom Commands
-
-To add a new command:
-
-1. Add the command definition in the `registerCommands()` function
-2. Add a case for the command in the `interactionCreate` event handler
-3. Restart the bot
-
-### Changing Bot Status
-
-Find this line in the `ready` event:
-
-```javascript
-client.user.setActivity('movies & TV shows', { type: 'WATCHING' });
-```
-
-Change the text or type as desired. Available types: PLAYING, STREAMING, LISTENING, WATCHING, COMPETING.
-
-## API Information
-
-This bot uses the Vyla Media API hosted at:
-```
-https://vyla-api.vercel.app/api
-```
-
-The API provides:
-- 34 streaming sources
-- Complete TMDB integration
-- Direct image URLs
-- Enhanced metadata
-- Genre filtering
-- Season and episode details
-- Cast and crew information
-
-For API documentation, visit: https://github.com/endoverdosing/Vyla-API
-
-## Rate Limiting
-
-The Vyla API has fair usage rate limits. If you're running a large server:
-- Consider caching frequently requested data
-- Add delays between bulk requests
-- Self-host your own Vyla API instance
+- Built with Discord.js v14
+- Uses Vyla Media API backend
+- 34 streaming sources available
+- Session-based browsing (10 min timeout)
+- Interactive dropdown menus
+- Button-based navigation
+- No database required
 
 ## Support
 
-For issues with:
-- The Discord bot: Check this README and troubleshooting section
-- The Vyla API: Visit https://github.com/endoverdosing/Vyla-API/issues
-- Discord.js: Visit https://discord.js.org/
+For help:
+- Use `/help` command in Discord
+- Check QUICKSTART.md for setup
+- Check USER_GUIDE.md for usage
+- Check COMMANDS.md for command reference
 
 ## License
 
 MIT License - Free to use and modify
-
-## Acknowledgments
-
-- Vyla Media API for providing the backend
-- TMDB for media data
-- Discord.js for the bot framework
-- All streaming providers integrated in the API
-
-## Updates
-
-To update the bot when new features are added:
-
-1. Download the updated files
-2. Stop the bot (Ctrl+C in terminal)
-3. Run `npm install` to update dependencies
-4. Start the bot again with `npm start`
-
-## Security Notes
-
-- Never share your bot token publicly
-- Keep your `.env` file private
-- Add `.env` to your `.gitignore` if using version control
-- Regularly reset your bot token if you suspect it's been compromised
-
-## Performance Tips
-
-- The bot uses deferred replies for all commands to prevent timeout errors
-- All API calls have a 10-second timeout
-- Images are loaded from TMDB's CDN for fast delivery
-- The bot automatically registers slash commands on startup
-
-## Future Enhancements
-
-Possible additions you could make:
-- Pagination for search results
-- Watchlist functionality using Discord's database
-- Scheduled notifications for new episodes
-- Movie night voting system
-- User recommendations based on preferences
-- Integration with other streaming APIs
-
-Enjoy using your Vyla Discord Bot!
