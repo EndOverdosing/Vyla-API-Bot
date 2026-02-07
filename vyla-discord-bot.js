@@ -55,13 +55,25 @@ const GENRE_MAP = {
 const userSessions = new Map();
 
 function createMediaEmbed(item, type, index) {
+    const rating = item.vote_average ?? item.rating ?? 'N/A';
+
     const embed = new EmbedBuilder()
         .setColor('White')
         .setTitle(`${index}. ${item.title || item.name}`)
-        .setDescription(item.overview ? (item.overview.length > 200 ? item.overview.substring(0, 197) + '...' : item.overview) : 'No description available')
+        .setDescription(
+            item.overview
+                ? item.overview.length > 200
+                    ? item.overview.slice(0, 197) + '...'
+                    : item.overview
+                : 'No description available'
+        )
         .addFields(
-            { name: 'Rating', value: item.vote_average ? `${item.vote_average}/10` : 'N/A', inline: true },
-            { name: 'Year', value: (item.release_date || item.first_air_date || 'Unknown').split('-')[0], inline: true }
+            { name: 'Rating', value: `${rating}/10`, inline: true },
+            {
+                name: 'Year',
+                value: (item.release_date || item.first_air_date || 'Unknown').split('-')[0],
+                inline: true
+            }
         );
 
     if (item.poster) {
@@ -74,46 +86,56 @@ function createMediaEmbed(item, type, index) {
 }
 
 function createDetailedEmbed(data, type) {
-    const info = data.info || data.data;
+    const info = data.info ?? data.data;
+    if (!info) throw new Error('Missing details payload');
+
+    const rating = info.vote_average ?? info.rating ?? 'N/A';
+
     const embed = new EmbedBuilder()
         .setColor('White')
         .setTitle(info.title || info.name)
-        .setDescription(info.overview || 'No description available');
-
-    const fields = [
-        { name: 'Rating', value: `${info.vote_average || 'N/A'}/10`, inline: true },
-        { name: 'Status', value: info.status || 'Unknown', inline: true }
-    ];
+        .setDescription(info.overview || 'No description available')
+        .addFields(
+            { name: 'Rating', value: `${rating}/10`, inline: true },
+            { name: 'Status', value: info.status || 'Unknown', inline: true }
+        );
 
     if (type === 'movie') {
-        fields.push(
+        embed.addFields(
             { name: 'Release', value: info.release_date || 'Unknown', inline: true },
             { name: 'Runtime', value: info.runtime ? `${info.runtime} min` : 'N/A', inline: true }
         );
     } else {
-        fields.push(
+        embed.addFields(
             { name: 'Seasons', value: info.number_of_seasons?.toString() || 'N/A', inline: true },
             { name: 'Episodes', value: info.number_of_episodes?.toString() || 'N/A', inline: true }
         );
     }
 
-    if (info.genres && info.genres.length > 0) {
-        fields.push({ name: 'Genres', value: info.genres.map(g => g.name).join(', '), inline: false });
+    if (info.genres?.length) {
+        embed.addFields({
+            name: 'Genres',
+            value: info.genres.map(g => g.name).join(', ')
+        });
     }
 
-    if (data.cast && data.cast.length > 0) {
-        const topCast = data.cast.slice(0, 5).map(c => c.name).join(', ');
-        fields.push({ name: 'Cast', value: topCast, inline: false });
+    if (data.cast?.length) {
+        embed.addFields({
+            name: 'Cast',
+            value: data.cast.slice(0, 5).map(c => c.name).join(', ')
+        });
     }
-
-    embed.addFields(fields);
 
     if (info.backdrop_path) {
         embed.setImage(`https://image.tmdb.org/t/p/w1280${info.backdrop_path}`);
+    } else if (info.backdrop) {
+        embed.setImage(info.backdrop);
     }
 
     if (info.poster_path) {
         embed.setThumbnail(`https://image.tmdb.org/t/p/w342${info.poster_path}`);
+    } else if (info.poster) {
+        embed.setThumbnail(info.poster);
     }
 
     return embed;
@@ -154,7 +176,7 @@ function createPaginationButtons(page, totalPages, prefix) {
 function createSelectionButtons(sessionId, items) {
     const options = items.slice(0, 10).map((item, index) => ({
         label: `${index + 1}. ${(item.title || item.name).substring(0, 90)}`,
-        description: `${item.vote_average || 'N/A'}/10 - ${(item.release_date || item.first_air_date || 'Unknown').split('-')[0]}`,
+        description: `${item.vote_average ?? item.rating ?? 'N/A'}/10 - ${(item.release_date || item.first_air_date || 'Unknown').split('-')[0]}`,
         value: `select_${sessionId}_${index}`
     }));
 
@@ -351,7 +373,7 @@ client.on('interactionCreate', async interaction => {
                 });
 
                 const embeds = results.slice(0, 10).map((item, index) =>
-                    createMediaEmbed(item, item.media_type || 'movie', index + 1)
+                    createMediaEmbed(item, item.type, index + 1)
                 );
 
                 const components = [createSelectionButtons(sessionId, results)];
@@ -388,7 +410,7 @@ client.on('interactionCreate', async interaction => {
                 });
 
                 const embeds = results.slice(0, 10).map((item, index) =>
-                    createMediaEmbed(item, item.media_type || 'movie', index + 1)
+                    createMediaEmbed(item, item.type, index + 1)
                 );
 
                 const components = [createSelectionButtons(sessionId, results)];
@@ -665,92 +687,49 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.on('interactionCreate', async interaction => {
-    if (interaction.isStringSelectMenu()) {
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('selection_')) {
         await interaction.deferUpdate();
 
-        if (interaction.customId.startsWith('selection_')) {
-            const sessionId = interaction.customId.replace('selection_', '');
-            const session = userSessions.get(sessionId);
-
-            if (!session) {
-                await interaction.followUp({ content: 'Session expired. Please run the command again.', ephemeral: true });
-                return;
-            }
-
-            const selectedValue = interaction.values[0];
-            const index = parseInt(selectedValue.split('_')[2]);
-            const item = session.results[index];
-
-            const type = item.media_type || session.contentType || 'movie';
-
-            try {
-                const detailsResponse = await api.get(`/details/${type}/${item.id}`);
-                const embed = createDetailedEmbed(detailsResponse.data, type);
-
-                const row = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`watch_${type}_${item.id}`)
-                            .setLabel('Watch Now')
-                            .setStyle(ButtonStyle.Success),
-                        new ButtonBuilder()
-                            .setCustomId('back_to_results')
-                            .setLabel('Back to Results')
-                            .setStyle(ButtonStyle.Secondary)
-                    );
-
-                await interaction.editReply({
-                    content: '',
-                    embeds: [embed],
-                    components: [row]
-                });
-            } catch (error) {
-                await interaction.followUp({ content: 'Could not load details. Please try again.', ephemeral: true });
-            }
+        const sessionId = interaction.customId.replace('selection_', '');
+        const session = userSessions.get(sessionId);
+        if (!session) {
+            await interaction.followUp({ content: 'Session expired.', ephemeral: true });
+            return;
         }
 
-        if (interaction.customId.startsWith('genre_select_')) {
-            const selectedValue = interaction.values[0];
-            const parts = selectedValue.split('_');
-            const type = parts[1];
-            const genreId = parts[2];
+        const index = Number(interaction.values[0].split('_')[2]);
+        const item = session.results[index];
 
-            try {
-                const response = await api.get(`/genres/${type}/${genreId}`);
-                const results = response.data.results || [];
+        if (!item?.type && !item?.media_type && !session.contentType) {
+            throw new Error('Missing media type');
+        }
 
-                if (results.length === 0) {
-                    await interaction.followUp({ content: 'No content found for this genre.', ephemeral: true });
-                    return;
-                }
+        const type = item.type || item.media_type || session.contentType;
 
-                const sessionId = Date.now().toString();
-                userSessions.set(sessionId, {
-                    type: 'genre',
-                    results: results,
-                    contentType: type
-                });
+        try {
+            const detailsResponse = await api.get(`/details/${type}/${item.id}`);
+            const embed = createDetailedEmbed(detailsResponse.data, type);
 
-                const embeds = results.slice(0, 10).map((item, index) =>
-                    createMediaEmbed(item, type, index + 1)
-                );
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`watch_${type}_${item.id}`)
+                    .setLabel('Watch Now')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId('back_to_results')
+                    .setLabel('Back to Results')
+                    .setStyle(ButtonStyle.Secondary)
+            );
 
-                const components = [createSelectionButtons(sessionId, results)];
-
-                if (results.length > 10) {
-                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `genre_${sessionId}`));
-                }
-
-                await interaction.editReply({
-                    content: `${GENRE_MAP[type][genreId]} ${type === 'movie' ? 'Movies' : 'TV Shows'} - Select one to see details:`,
-                    embeds,
-                    components
-                });
-
-                setTimeout(() => userSessions.delete(sessionId), 600000);
-            } catch (error) {
-                await interaction.followUp({ content: 'Could not load genre content. Please try again.', ephemeral: true });
-            }
+            await interaction.editReply({
+                embeds: [embed],
+                components: [row]
+            });
+        } catch {
+            await interaction.followUp({
+                content: 'Could not load details.',
+                ephemeral: true
+            });
         }
     }
 
