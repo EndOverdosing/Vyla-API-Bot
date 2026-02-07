@@ -986,12 +986,12 @@ client.on('interactionCreate', async interaction => {
 
                     const embed = new EmbedBuilder()
                         .setColor('White')
-                        .setTitle('🎬 Streaming Sources')
+                        .setTitle('Streaming Sources')
                         .setDescription(`**${sources.length} sources available**\nSelect a source to start watching:`)
                         .addFields(
-                            { name: '📊 Quality Range', value: 'SD to 4K available', inline: true },
-                            { name: '🌍 Languages', value: sources.some(s => s.isFrench) ? 'Multi-language' : 'English', inline: true },
-                            { name: '⚙️ Configuration', value: 'Click and play - No setup needed', inline: true }
+                            { name: 'Quality Range', value: 'SD to 4K available', inline: true },
+                            { name: 'Languages', value: sources.some(s => s.isFrench) ? 'Multi-language' : 'English', inline: true },
+                            { name: 'Configuration', value: 'Click and play - No setup needed', inline: true }
                         );
 
                     const rows = createSourceButtons(sources);
@@ -1195,7 +1195,7 @@ client.on('interactionCreate', async interaction => {
 
             const embed = new EmbedBuilder()
                 .setColor('White')
-                .setTitle(`📺 Season ${season} Episode ${episode}`)
+                .setTitle(`Season ${season} Episode ${episode}`)
                 .setDescription(`**${sources.length} sources available**\nSelect a source to start watching:`)
                 .addFields(
                     { name: 'Episode', value: `Season ${season}, Episode ${episode}`, inline: true },
