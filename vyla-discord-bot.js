@@ -314,7 +314,7 @@ client.on('interactionCreate', async interaction => {
         switch (commandName) {
             case 'help': {
                 const embed = new EmbedBuilder()
-                    .setColor('#fcfcfcff')
+                    .setColor('White')
                     .setTitle('Vyla Bot - Help Guide')
                     .setDescription('I help you discover and watch movies and TV shows. Here is how to use me:')
                     .addFields(
@@ -351,7 +351,7 @@ client.on('interactionCreate', async interaction => {
                     )
                     .setFooter({ text: 'All content powered by TMDB and Vyla API' });
 
-                await interaction.editReply({ embeds: [embed] });
+                await interaction.reply({ embeds: [embed] });
                 break;
             }
 
@@ -782,7 +782,7 @@ client.on('interactionCreate', async interaction => {
                     }
 
                     const embed = new EmbedBuilder()
-                        .setColor('#fcfcfcff')
+                        .setColor('White')
                         .setTitle('Streaming Sources Available')
                         .setDescription('Click on any link below to start watching:');
 
