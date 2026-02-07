@@ -154,12 +154,12 @@ function createDetailedEmbed(data, type) {
     return embed;
 }
 
-function createPaginationButtons(page, totalPages, sessionId) {
+function createPaginationButtons(page, totalPages, sessionId, type = '') {
     const row = new ActionRowBuilder();
     if (page > 1) {
         row.addComponents(
             new ButtonBuilder()
-                .setCustomId(`${sessionId}_prev`)
+                .setCustomId(`${sessionId}_prev_${type}`)
                 .setLabel('Previous')
                 .setStyle(ButtonStyle.Primary)
         );
@@ -174,7 +174,7 @@ function createPaginationButtons(page, totalPages, sessionId) {
     if (page < totalPages) {
         row.addComponents(
             new ButtonBuilder()
-                .setCustomId(`${sessionId}_next`)
+                .setCustomId(`${sessionId}_next_${type}`)
                 .setLabel('Next')
                 .setStyle(ButtonStyle.Primary)
         );
@@ -349,14 +349,15 @@ client.on('interactionCreate', async interaction => {
                     type: 'search',
                     results: results,
                     query: query,
-                    currentPage: 1
+                    currentPage: 1,
+                    totalPages: Math.ceil(results.length / 10)
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, item.type, index + 1)
                 );
                 const components = [createSelectionButtons(sessionId, results)];
                 if (results.length > 10) {
-                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `search_${sessionId}`));
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), sessionId, 'search'));
                 }
                 await interaction.editReply({
                     content: `Found ${results.length} results for "${query}". Select one to see details:`,
@@ -379,14 +380,15 @@ client.on('interactionCreate', async interaction => {
                 userSessions.set(sessionId, {
                     type: 'trending',
                     results: results,
-                    currentPage: 1
+                    currentPage: 1,
+                    totalPages: Math.ceil(results.length / 10)
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, item.type, index + 1)
                 );
                 const components = [createSelectionButtons(sessionId, results)];
                 if (results.length > 10) {
-                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `trending_${sessionId}`));
+                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), sessionId, 'trending'));
                 }
                 await interaction.editReply({
                     content: 'Trending now - Select one to see details:',
@@ -410,14 +412,15 @@ client.on('interactionCreate', async interaction => {
                     type: 'popular',
                     results: results,
                     contentType: type,
-                    currentPage: 1
+                    currentPage: 1,
+                    totalPages: response.data.meta?.total_pages || Math.ceil(results.length / 10)
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, type, index + 1)
                 );
                 const components = [createSelectionButtons(sessionId, results)];
-                if (results.length > 10) {
-                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `popular_${sessionId}`));
+                if (results.length > 10 || response.data.meta?.has_next) {
+                    components.push(createPaginationButtons(1, response.data.meta?.total_pages || Math.ceil(results.length / 10), sessionId, 'popular'));
                 }
                 await interaction.editReply({
                     content: `Popular ${type === 'movie' ? 'Movies' : 'TV Shows'} - Select one to see details:`,
@@ -441,14 +444,15 @@ client.on('interactionCreate', async interaction => {
                     type: 'toprated',
                     results: results,
                     contentType: type,
-                    currentPage: 1
+                    currentPage: 1,
+                    totalPages: response.data.meta?.total_pages || Math.ceil(results.length / 10)
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, type, index + 1)
                 );
                 const components = [createSelectionButtons(sessionId, results)];
-                if (results.length > 10) {
-                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `toprated_${sessionId}`));
+                if (results.length > 10 || response.data.meta?.has_next) {
+                    components.push(createPaginationButtons(1, response.data.meta?.total_pages || Math.ceil(results.length / 10), sessionId, 'toprated'));
                 }
                 await interaction.editReply({
                     content: `Top Rated ${type === 'movie' ? 'Movies' : 'TV Shows'} - Select one to see details:`,
@@ -501,14 +505,15 @@ client.on('interactionCreate', async interaction => {
                     type: 'upcoming',
                     results: results,
                     contentType: 'movie',
-                    currentPage: 1
+                    currentPage: 1,
+                    totalPages: response.data.meta?.total_pages || Math.ceil(results.length / 10)
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, 'movie', index + 1)
                 );
                 const components = [createSelectionButtons(sessionId, results)];
-                if (results.length > 10) {
-                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `upcoming_${sessionId}`));
+                if (results.length > 10 || response.data.meta?.has_next) {
+                    components.push(createPaginationButtons(1, response.data.meta?.total_pages || Math.ceil(results.length / 10), sessionId, 'upcoming'));
                 }
                 await interaction.editReply({
                     content: 'Upcoming Movies - Select one to see details:',
@@ -530,14 +535,15 @@ client.on('interactionCreate', async interaction => {
                     type: 'nowplaying',
                     results: results,
                     contentType: 'movie',
-                    currentPage: 1
+                    currentPage: 1,
+                    totalPages: response.data.meta?.total_pages || Math.ceil(results.length / 10)
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, 'movie', index + 1)
                 );
                 const components = [createSelectionButtons(sessionId, results)];
-                if (results.length > 10) {
-                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `nowplaying_${sessionId}`));
+                if (results.length > 10 || response.data.meta?.has_next) {
+                    components.push(createPaginationButtons(1, response.data.meta?.total_pages || Math.ceil(results.length / 10), sessionId, 'nowplaying'));
                 }
                 await interaction.editReply({
                     content: 'Now Playing in Theaters - Select one to see details:',
@@ -559,14 +565,15 @@ client.on('interactionCreate', async interaction => {
                     type: 'airingtoday',
                     results: results,
                     contentType: 'tv',
-                    currentPage: 1
+                    currentPage: 1,
+                    totalPages: response.data.meta?.total_pages || Math.ceil(results.length / 10)
                 });
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, 'tv', index + 1)
                 );
                 const components = [createSelectionButtons(sessionId, results)];
-                if (results.length > 10) {
-                    components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `airingtoday_${sessionId}`));
+                if (results.length > 10 || response.data.meta?.has_next) {
+                    components.push(createPaginationButtons(1, response.data.meta?.total_pages || Math.ceil(results.length / 10), sessionId, 'airingtoday'));
                 }
                 await interaction.editReply({
                     content: 'Airing Today - Select one to see details:',
@@ -728,64 +735,21 @@ client.on('interactionCreate', async interaction => {
             await interaction.deferUpdate();
 
             const customId = interaction.customId;
+            const parts = customId.split('_');
+            let baseSessionId = '';
+            let buttonType = '';
 
-            let sessionId = '';
-            if (customId.includes('_prev')) {
-                sessionId = customId.replace('_prev', '');
-            } else if (customId.includes('_next')) {
-                sessionId = customId.replace('_next', '');
+            if (customId.includes('_prev_')) {
+                baseSessionId = customId.replace('_prev_', '_');
+                buttonType = parts[parts.length - 1];
+            } else if (customId.includes('_next_')) {
+                baseSessionId = customId.replace('_next_', '_');
+                buttonType = parts[parts.length - 1];
+            } else {
+                baseSessionId = customId.replace('_prev', '').replace('_next', '');
             }
 
-            const session = userSessions.get(sessionId);
-            if (!session) {
-                await interaction.followUp({ content: 'Session expired. Please run the command again.', ephemeral: true });
-                return;
-            }
-
-            let page = session.currentPage || 1;
-            if (customId.includes('_prev')) page = Math.max(1, page - 1);
-            if (customId.includes('_next')) page = Math.min(Math.ceil(session.results.length / 10), page + 1);
-
-            session.currentPage = page;
-            userSessions.set(sessionId, session);
-
-            const startIndex = (page - 1) * 10;
-            const currentItems = session.results.slice(startIndex, startIndex + 10);
-
-            const embeds = currentItems.map((item, index) =>
-                createMediaEmbed(item, item.type || session.contentType, startIndex + index + 1)
-            );
-
-            const components = [createSelectionButtons(sessionId, currentItems)];
-
-            if (session.results.length > 10) {
-                let prefix = sessionId;
-                if (prefix.includes('_')) {
-                    prefix = prefix.split('_')[0] + '_' + prefix.split('_')[1];
-                }
-                components.push(createPaginationButtons(page, Math.ceil(session.results.length / 10), sessionId));
-            }
-
-            await interaction.editReply({
-                content: `Page ${page}/${Math.ceil(session.results.length / 10)} - Select an item:`,
-                embeds,
-                components
-            });
-            return;
-        }
-
-        if (interaction.customId.includes('genre_') && (interaction.customId.includes('_prev') || interaction.customId.includes('_next'))) {
-            await interaction.deferUpdate();
-
-            const customId = interaction.customId;
-            let sessionId = '';
-            if (customId.includes('_prev')) {
-                sessionId = customId.replace('_prev', '');
-            } else if (customId.includes('_next')) {
-                sessionId = customId.replace('_next', '');
-            }
-
-            const session = userSessions.get(sessionId);
+            const session = userSessions.get(baseSessionId);
             if (!session) {
                 await interaction.followUp({ content: 'Session expired. Please run the command again.', ephemeral: true });
                 return;
@@ -796,32 +760,70 @@ client.on('interactionCreate', async interaction => {
             if (customId.includes('_next')) page = page + 1;
 
             try {
-                const response = await api.get(`/genres/${session.contentType}/${session.genreId}?page=${page}&sort_by=popularity.desc`);
-                const results = response.data.results || [];
+                let results = [];
+                let totalPages = session.totalPages || 1;
+
+                if (session.type === 'search') {
+                    const response = await api.get(`/search?q=${encodeURIComponent(session.query)}&page=${page}`);
+                    results = response.data.results || [];
+                    totalPages = response.data.meta?.total_pages || Math.ceil(results.length / 10);
+                } else if (session.type === 'genre') {
+                    const response = await api.get(`/genres/${session.contentType}/${session.genreId}?page=${page}&sort_by=popularity.desc`);
+                    results = response.data.results || [];
+                    totalPages = response.data.meta?.total_pages || 1;
+                } else if (['popular', 'toprated', 'upcoming', 'nowplaying', 'airingtoday'].includes(session.type)) {
+                    let endpoint = '';
+                    if (session.type === 'popular') {
+                        endpoint = session.contentType === 'movie' ? '/movie/popular' : '/tv/popular';
+                    } else if (session.type === 'toprated') {
+                        endpoint = session.contentType === 'movie' ? '/movie/top_rated' : '/tv/top_rated';
+                    } else if (session.type === 'upcoming') {
+                        endpoint = '/movie/upcoming';
+                    } else if (session.type === 'nowplaying') {
+                        endpoint = '/movie/now_playing';
+                    } else if (session.type === 'airingtoday') {
+                        endpoint = '/tv/airing_today';
+                    }
+
+                    const response = await api.get(`/list?endpoint=${endpoint}&page=${page}`);
+                    results = response.data.results || [];
+                    totalPages = response.data.meta?.total_pages || 1;
+                } else {
+                    const startIndex = (page - 1) * 10;
+                    results = session.results.slice(startIndex, startIndex + 10);
+                }
 
                 if (results.length === 0 && page > 1) {
-                    page = page - 1;
                     await interaction.followUp({ content: 'No more pages available.', ephemeral: true });
                     return;
                 }
 
                 session.results = results;
                 session.currentPage = page;
-                userSessions.set(sessionId, session);
+                session.totalPages = totalPages;
+                userSessions.set(baseSessionId, session);
 
                 const embeds = results.slice(0, 10).map((item, index) =>
-                    createMediaEmbed(item, session.contentType, index + 1)
+                    createMediaEmbed(item, item.type || session.contentType, (page - 1) * 10 + index + 1)
                 );
 
-                const genreName = GENRE_MAP[session.contentType][session.genreId] || 'Selected Genre';
-                const components = [createSelectionButtons(sessionId, results)];
+                const components = [createSelectionButtons(baseSessionId, results)];
+                if (session.totalPages > 1) {
+                    components.push(createPaginationButtons(page, totalPages, baseSessionId, session.type));
+                }
 
-                if (response.data.meta?.has_next) {
-                    components.push(createPaginationButtons(page, response.data.meta.total_pages, sessionId));
+                let content = '';
+                if (session.type === 'search') {
+                    content = `Found ${response.data.meta?.total_results || results.length} results for "${session.query}". Page ${page}/${totalPages}`;
+                } else if (session.type === 'genre') {
+                    const genreName = GENRE_MAP[session.contentType][session.genreId] || 'Selected Genre';
+                    content = `${genreName} ${session.contentType === 'movie' ? 'Movies' : 'TV Shows'} - Page ${page}/${totalPages}`;
+                } else {
+                    content = `Page ${page}/${totalPages} - Select an item:`;
                 }
 
                 await interaction.editReply({
-                    content: `${genreName} ${session.contentType === 'movie' ? 'Movies' : 'TV Shows'} - Page ${page} - Select one to see details:`,
+                    content: content,
                     embeds,
                     components
                 });
@@ -966,13 +968,14 @@ client.on('interactionCreate', async interaction => {
                 await interaction.followUp({ content: 'No content found for this genre.', ephemeral: true });
                 return;
             }
-            const sessionId = Date.now().toString();
+            const sessionId = `${type}_genre_${Date.now().toString()}`;
             userSessions.set(sessionId, {
                 type: 'genre',
                 results: results,
                 contentType: type,
                 genreId: genreId,
-                currentPage: 1
+                currentPage: 1,
+                totalPages: response.data.meta?.total_pages || 1
             });
             const genreName = GENRE_MAP[type][genreId] || 'Selected Genre';
             const embeds = results.slice(0, 10).map((item, index) =>
@@ -980,7 +983,7 @@ client.on('interactionCreate', async interaction => {
             );
             const components = [createSelectionButtons(sessionId, results)];
             if (response.data.meta?.has_next) {
-                components.push(createPaginationButtons(1, response.data.meta.total_pages, `genre_${sessionId}`));
+                components.push(createPaginationButtons(1, response.data.meta.total_pages, sessionId, 'genre'));
             }
             await interaction.editReply({
                 content: `${genreName} ${type === 'movie' ? 'Movies' : 'TV Shows'} - Select one to see details:`,
