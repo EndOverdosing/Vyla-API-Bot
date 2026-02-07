@@ -68,6 +68,64 @@ const GENRE_MAP = {
 
 const userSessions = new Map();
 
+function filterSourcesByQuality(sources) {
+    const highQuality = sources.filter(s =>
+        s.stream_url.includes('4k') ||
+        s.stream_url.includes('1080') ||
+        s.name?.includes('4K') ||
+        s.name?.includes('1080p') ||
+        s.name?.includes('VidEasy') ||
+        s.name?.includes('VidFast')
+    );
+
+    const standardQuality = sources.filter(s =>
+        s.stream_url.includes('720') ||
+        (!s.stream_url.includes('4k') &&
+            !s.stream_url.includes('1080') &&
+            !s.stream_url.includes('720'))
+    );
+
+    return [...highQuality, ...standardQuality];
+}
+
+function createSourceButtons(sources) {
+    const rows = [];
+    const maxButtons = 25;
+    const buttonsPerRow = 5;
+
+    const filteredSources = filterSourcesByQuality(sources).slice(0, maxButtons);
+
+    filteredSources.forEach((source, index) => {
+        const rowIndex = Math.floor(index / buttonsPerRow);
+        if (!rows[rowIndex]) {
+            rows[rowIndex] = new ActionRowBuilder();
+        }
+
+        let sourceName = source.name || 'Unknown';
+        if (sourceName.length > 30) {
+            sourceName = sourceName.substring(0, 27) + '...';
+        }
+
+        let quality = '';
+        if (source.stream_url.includes('4k') || source.name?.includes('4K')) {
+            quality = ' 🔥';
+        } else if (source.stream_url.includes('1080') || source.name?.includes('1080')) {
+            quality = ' ⭐';
+        }
+
+        const language = source.isFrench ? ' 🇫🇷' : '';
+
+        rows[rowIndex].addComponents(
+            new ButtonBuilder()
+                .setLabel(`${sourceName}${quality}${language}`)
+                .setStyle(ButtonStyle.Link)
+                .setURL(source.stream_url)
+        );
+    });
+
+    return rows;
+}
+
 function createMediaEmbed(item, type, index) {
     const rating = item.vote_average ?? item.rating ?? 'N/A';
     const embed = new EmbedBuilder()
@@ -391,12 +449,17 @@ client.on('interactionCreate', async interaction => {
                             inline: false
                         },
                         {
+                            name: 'Streaming Sources',
+                            value: '**34+ sources available** including:\n• VidSrc • VidLink • 2Embed • P-Stream • MultiEmbed\n• VidEasy (4K) • VidFast (4K) • SmashyStream\n• AutoEmbed • VidPrime • And 25+ more!\n\nAll quality levels: SD, 720p, 1080p, 4K',
+                            inline: false
+                        },
+                        {
                             name: 'How It Works',
-                            value: 'Just use the commands above. When I show results, you can:\n- Use the dropdown menu to select what interests you\n- Click Next/Previous to browse more results\n- Click Watch to get streaming links\n\nNo IDs or complicated stuff needed!',
+                            value: 'Just use the commands above. When I show results, you can:\n- Use the dropdown menu to select what interests you\n- Click Next/Previous to browse more results\n- Click Watch to get ALL streaming links\n- Choose from multiple sources and qualities\n\nNo IDs or complicated stuff needed!',
                             inline: false
                         }
                     )
-                    .setFooter({ text: 'All content powered by TMDB and Vyla API' });
+                    .setFooter({ text: '34+ streaming sources • All quality levels • Powered by Vyla API' });
                 await interaction.editReply({ embeds: [embed] });
                 break;
             }
@@ -703,17 +766,29 @@ client.on('interactionCreate', async interaction => {
                 const randomItem = results[Math.floor(Math.random() * results.length)];
                 const detailsResponse = await api.get(`/details/${type}/${randomItem.id}`);
                 const embed = createDetailedEmbed(detailsResponse.data, type);
+
+                const sourcesResponse = await api.get(`/player/${type}/${randomItem.id}`);
+                const sourcesCount = sourcesResponse.data.sources?.length || 0;
+
                 const row = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
                             .setCustomId(`watch_${type}_${randomItem.id}`)
-                            .setLabel('Watch Now')
+                            .setLabel(`Watch Now (${sourcesCount} sources)`)
                             .setStyle(ButtonStyle.Success),
                         new ButtonBuilder()
                             .setCustomId(`random_${type}`)
                             .setLabel('Get Another Random')
                             .setStyle(ButtonStyle.Primary)
                     );
+
+                if (sourcesCount > 0) {
+                    embed.addFields({
+                        name: 'Streaming Sources',
+                        value: `${sourcesCount} sources available (SD to 4K)`
+                    });
+                }
+
                 await interaction.editReply({
                     content: `Random ${type === 'movie' ? 'Movie' : 'TV Show'} Pick:`,
                     embeds: [embed],
@@ -736,16 +811,11 @@ client.on('interactionCreate', async interaction => {
         if (interaction.customId === 'back_to_results') {
             await interaction.deferUpdate();
 
-            console.log('DEBUG: Looking for session with message ID:', interaction.message.id);
-            console.log('DEBUG: All sessions:', Array.from(userSessions.entries()).map(([key, val]) => ({ key, messageId: val.messageId, type: val.type })));
-
             let foundSession = null;
             let foundSessionKey = null;
 
             for (const [sessionKey, session] of userSessions.entries()) {
-                console.log('DEBUG: Checking session', sessionKey, 'with messageId:', session.messageId, 'interactionId:', session.interactionId);
                 if (session && session.messageId === interaction.message.id) {
-                    console.log('DEBUG: Found session by message ID!', sessionKey);
                     foundSession = session;
                     foundSessionKey = sessionKey;
                     break;
@@ -753,10 +823,8 @@ client.on('interactionCreate', async interaction => {
             }
 
             if (!foundSession) {
-                console.log('DEBUG: No session found by message ID, checking by interaction ID...');
                 for (const [sessionKey, session] of userSessions.entries()) {
                     if (session && session.interactionId === interaction.id) {
-                        console.log('DEBUG: Found session by interaction ID!', sessionKey);
                         foundSession = session;
                         foundSessionKey = sessionKey;
                         break;
@@ -765,7 +833,6 @@ client.on('interactionCreate', async interaction => {
             }
 
             if (!foundSession) {
-                console.log('DEBUG: Still no session found');
                 await interaction.editReply({
                     content: 'Session not found. Please use the command again.',
                     embeds: [],
@@ -877,6 +944,7 @@ client.on('interactionCreate', async interaction => {
             const parts = interaction.customId.split('_');
             const type = parts[1];
             const id = parts[2];
+
             try {
                 if (type === 'tv') {
                     const tvResponse = await api.get(`/details/tv/${id}`);
@@ -900,32 +968,23 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     const playerResponse = await api.get(`/player/${type}/${id}`);
                     const sources = playerResponse.data.sources || [];
+
                     if (sources.length === 0) {
                         await interaction.followUp({ content: 'No streaming sources available right now.', ephemeral: true });
                         return;
                     }
+
                     const embed = new EmbedBuilder()
                         .setColor('White')
-                        .setTitle('Streaming Sources Available')
-                        .setDescription('Click on any link below to start watching:');
-                    const buttons = [];
-                    sources.slice(0, 5).forEach((source, index) => {
-                        const sourceName = source.name ||
-                            (source.stream_url.includes('vidsrc') ? 'VidSrc' :
-                                source.stream_url.includes('vidlink') ? 'VidLink' :
-                                    source.stream_url.includes('2embed') ? '2Embed' :
-                                        `Source ${index + 1}`);
-                        buttons.push(
-                            new ButtonBuilder()
-                                .setLabel(sourceName)
-                                .setStyle(ButtonStyle.Link)
-                                .setURL(source.stream_url)
+                        .setTitle('🎬 Streaming Sources')
+                        .setDescription(`**${sources.length} sources available**\nSelect a source to start watching:`)
+                        .addFields(
+                            { name: '📊 Quality Range', value: 'SD to 4K available', inline: true },
+                            { name: '🌍 Languages', value: sources.some(s => s.isFrench) ? 'Multi-language' : 'English', inline: true },
+                            { name: '⚙️ Configuration', value: 'Click and play - No setup needed', inline: true }
                         );
-                    });
-                    const rows = [];
-                    for (let i = 0; i < buttons.length; i += 5) {
-                        rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-                    }
+
+                    const rows = createSourceButtons(sources);
                     await interaction.editReply({
                         embeds: [embed],
                         components: rows
@@ -947,17 +1006,29 @@ client.on('interactionCreate', async interaction => {
                 const randomItem = results[Math.floor(Math.random() * results.length)];
                 const detailsResponse = await api.get(`/details/${type}/${randomItem.id}`);
                 const embed = createDetailedEmbed(detailsResponse.data, type);
+
+                const sourcesResponse = await api.get(`/player/${type}/${randomItem.id}`);
+                const sourcesCount = sourcesResponse.data.sources?.length || 0;
+
                 const row = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
                             .setCustomId(`watch_${type}_${randomItem.id}`)
-                            .setLabel('Watch Now')
+                            .setLabel(`Watch Now (${sourcesCount} sources)`)
                             .setStyle(ButtonStyle.Success),
                         new ButtonBuilder()
                             .setCustomId(`random_${type}`)
                             .setLabel('Get Another Random')
                             .setStyle(ButtonStyle.Primary)
                     );
+
+                if (sourcesCount > 0) {
+                    embed.addFields({
+                        name: 'Streaming Sources',
+                        value: `${sourcesCount} sources available`
+                    });
+                }
+
                 await interaction.editReply({
                     embeds: [embed],
                     components: [row]
@@ -1102,35 +1173,27 @@ client.on('interactionCreate', async interaction => {
         const tvId = parts[1];
         const season = parts[2];
         const episode = parts[3];
+
         try {
             const playerResponse = await api.get(`/player/tv/${tvId}?s=${season}&e=${episode}`);
             const sources = playerResponse.data.sources || [];
+
             if (sources.length === 0) {
                 await interaction.followUp({ content: 'No streaming sources available for this episode.', ephemeral: true });
                 return;
             }
+
             const embed = new EmbedBuilder()
                 .setColor('White')
-                .setTitle(`Season ${season} Episode ${episode}`)
-                .setDescription('Click on any link below to start watching:');
-            const buttons = [];
-            sources.slice(0, 5).forEach((source, index) => {
-                const sourceName = source.name ||
-                    (source.stream_url.includes('vidsrc') ? 'VidSrc' :
-                        source.stream_url.includes('vidlink') ? 'VidLink' :
-                            source.stream_url.includes('2embed') ? '2Embed' :
-                                `Source ${index + 1}`);
-                buttons.push(
-                    new ButtonBuilder()
-                        .setLabel(sourceName)
-                        .setStyle(ButtonStyle.Link)
-                        .setURL(source.stream_url)
+                .setTitle(`📺 Season ${season} Episode ${episode}`)
+                .setDescription(`**${sources.length} sources available**\nSelect a source to start watching:`)
+                .addFields(
+                    { name: 'Episode', value: `Season ${season}, Episode ${episode}`, inline: true },
+                    { name: 'Sources', value: `${sources.length} available`, inline: true },
+                    { name: 'Playback', value: 'Direct streaming', inline: true }
                 );
-            });
-            const rows = [];
-            for (let i = 0; i < buttons.length; i += 5) {
-                rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-            }
+
+            const rows = createSourceButtons(sources);
             await interaction.editReply({
                 embeds: [embed],
                 components: rows
