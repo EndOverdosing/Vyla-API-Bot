@@ -297,7 +297,7 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.channelId !== '1469774727298941050') {
         return interaction.reply({
-            content: '❌ This bot can only be used in the designated channel.',
+            content: 'This bot can only be used in the designated channel.',
             ephemeral: true
         });
     }
@@ -692,7 +692,7 @@ client.on('interactionCreate', async interaction => {
         const genreId = parts[2];
 
         try {
-            const response = await api.get(`/list?endpoint=discover/${type}&with_genres=${genreId}`);
+            const response = await api.get(`/genres/${type}/${genreId}?page=1`);
             const results = response.data.results || [];
 
             if (results.length === 0) {
