@@ -69,7 +69,17 @@ const GENRE_MAP = {
 const userSessions = new Map();
 
 function filterSourcesByQuality(sources) {
-    const highQuality = sources.filter(s =>
+    const seenUrls = new Set();
+    const uniqueSources = [];
+
+    for (const source of sources) {
+        if (!seenUrls.has(source.stream_url)) {
+            seenUrls.add(source.stream_url);
+            uniqueSources.push(source);
+        }
+    }
+
+    const highQuality = uniqueSources.filter(s =>
         s.stream_url.includes('4k') ||
         s.stream_url.includes('1080') ||
         s.name?.includes('4K') ||
@@ -78,7 +88,7 @@ function filterSourcesByQuality(sources) {
         s.name?.includes('VidFast')
     );
 
-    const standardQuality = sources.filter(s =>
+    const standardQuality = uniqueSources.filter(s =>
         s.stream_url.includes('720') ||
         (!s.stream_url.includes('4k') &&
             !s.stream_url.includes('1080') &&
