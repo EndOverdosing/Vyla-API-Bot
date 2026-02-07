@@ -208,11 +208,7 @@ async function registerCommands() {
         new SlashCommandBuilder()
             .setName('help')
             .setDescription('Show all available commands and how to use the bot')
-            .setDefaultMemberPermissions(PermissionFlagsBits.None)
-            .addChannelOption(option =>
-                option.setName('channel')
-                    .setDescription('The channel to use')
-                    .setRequired(false)),
+            .setDefaultMemberPermissions(PermissionFlagsBits.None),
 
         new SlashCommandBuilder()
             .setName('search')
@@ -351,7 +347,7 @@ client.on('interactionCreate', async interaction => {
                     )
                     .setFooter({ text: 'All content powered by TMDB and Vyla API' });
 
-                await interaction.reply({ embeds: [embed] });
+                await interaction.editReply({ embeds: [embed] });
                 break;
             }
 
