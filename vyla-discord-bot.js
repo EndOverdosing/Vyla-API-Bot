@@ -2,8 +2,6 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 const axios = require('axios');
 require('dotenv').config();
 
-const keepAlive = require('./keep-alive');
-
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds
