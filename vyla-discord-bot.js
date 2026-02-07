@@ -154,19 +154,19 @@ function createDetailedEmbed(data, type) {
     return embed;
 }
 
-function createPaginationButtons(page, totalPages, prefix) {
+function createPaginationButtons(page, totalPages, sessionId) {
     const row = new ActionRowBuilder();
     if (page > 1) {
         row.addComponents(
             new ButtonBuilder()
-                .setCustomId(`${prefix}_prev`)
+                .setCustomId(`${sessionId}_prev`)
                 .setLabel('Previous')
                 .setStyle(ButtonStyle.Primary)
         );
     }
     row.addComponents(
         new ButtonBuilder()
-            .setCustomId(`${prefix}_page`)
+            .setCustomId(`${sessionId}_page`)
             .setLabel(`Page ${page}/${totalPages}`)
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(true)
@@ -174,7 +174,7 @@ function createPaginationButtons(page, totalPages, prefix) {
     if (page < totalPages) {
         row.addComponents(
             new ButtonBuilder()
-                .setCustomId(`${prefix}_next`)
+                .setCustomId(`${sessionId}_next`)
                 .setLabel('Next')
                 .setStyle(ButtonStyle.Primary)
         );
@@ -344,7 +344,7 @@ client.on('interactionCreate', async interaction => {
                     await interaction.editReply(`No results found for "${query}". Try a different search term.`);
                     return;
                 }
-                const sessionId = Date.now().toString();
+                const sessionId = `search_${Date.now().toString()}`;
                 userSessions.set(sessionId, {
                     type: 'search',
                     results: results,
@@ -375,7 +375,7 @@ client.on('interactionCreate', async interaction => {
                     return;
                 }
                 const results = trendingSection.items;
-                const sessionId = Date.now().toString();
+                const sessionId = `trending_${Date.now().toString()}`;
                 userSessions.set(sessionId, {
                     type: 'trending',
                     results: results,
@@ -405,7 +405,7 @@ client.on('interactionCreate', async interaction => {
                     await interaction.editReply('Could not fetch popular content right now.');
                     return;
                 }
-                const sessionId = Date.now().toString();
+                const sessionId = `popular_${Date.now().toString()}`;
                 userSessions.set(sessionId, {
                     type: 'popular',
                     results: results,
@@ -436,7 +436,7 @@ client.on('interactionCreate', async interaction => {
                     await interaction.editReply('Could not fetch top rated content right now.');
                     return;
                 }
-                const sessionId = Date.now().toString();
+                const sessionId = `toprated_${Date.now().toString()}`;
                 userSessions.set(sessionId, {
                     type: 'toprated',
                     results: results,
@@ -496,7 +496,7 @@ client.on('interactionCreate', async interaction => {
                     await interaction.editReply('Could not fetch upcoming movies right now.');
                     return;
                 }
-                const sessionId = Date.now().toString();
+                const sessionId = `upcoming_${Date.now().toString()}`;
                 userSessions.set(sessionId, {
                     type: 'upcoming',
                     results: results,
@@ -525,7 +525,7 @@ client.on('interactionCreate', async interaction => {
                     await interaction.editReply('Could not fetch movies in theaters right now.');
                     return;
                 }
-                const sessionId = Date.now().toString();
+                const sessionId = `nowplaying_${Date.now().toString()}`;
                 userSessions.set(sessionId, {
                     type: 'nowplaying',
                     results: results,
@@ -554,7 +554,7 @@ client.on('interactionCreate', async interaction => {
                     await interaction.editReply('Could not fetch shows airing today right now.');
                     return;
                 }
-                const sessionId = Date.now().toString();
+                const sessionId = `airingtoday_${Date.now().toString()}`;
                 userSessions.set(sessionId, {
                     type: 'airingtoday',
                     results: results,
@@ -728,21 +728,12 @@ client.on('interactionCreate', async interaction => {
             await interaction.deferUpdate();
 
             const customId = interaction.customId;
+
             let sessionId = '';
-            let direction = '';
-
             if (customId.includes('_prev')) {
-                const parts = customId.split('_prev');
-                sessionId = parts[0];
-                direction = 'prev';
+                sessionId = customId.replace('_prev', '');
             } else if (customId.includes('_next')) {
-                const parts = customId.split('_next');
-                sessionId = parts[0];
-                direction = 'next';
-            }
-
-            if (sessionId.startsWith('_')) {
-                sessionId = sessionId.substring(1);
+                sessionId = customId.replace('_next', '');
             }
 
             const session = userSessions.get(sessionId);
@@ -752,14 +743,14 @@ client.on('interactionCreate', async interaction => {
             }
 
             let page = session.currentPage || 1;
-            if (direction === 'prev') page = Math.max(1, page - 1);
-            if (direction === 'next') page = Math.min(Math.ceil(session.results.length / 10), page + 1);
+            if (customId.includes('_prev')) page = Math.max(1, page - 1);
+            if (customId.includes('_next')) page = Math.min(Math.ceil(session.results.length / 10), page + 1);
 
             session.currentPage = page;
+            userSessions.set(sessionId, session);
 
             const startIndex = (page - 1) * 10;
-            const endIndex = startIndex + 10;
-            const currentItems = session.results.slice(startIndex, endIndex);
+            const currentItems = session.results.slice(startIndex, startIndex + 10);
 
             const embeds = currentItems.map((item, index) =>
                 createMediaEmbed(item, item.type || session.contentType, startIndex + index + 1)
@@ -767,18 +758,12 @@ client.on('interactionCreate', async interaction => {
 
             const components = [createSelectionButtons(sessionId, currentItems)];
 
-            let prefix = '';
-            if (customId.includes('search_')) prefix = 'search';
-            else if (customId.includes('trending_')) prefix = 'trending';
-            else if (customId.includes('popular_')) prefix = 'popular';
-            else if (customId.includes('toprated_')) prefix = 'toprated';
-            else if (customId.includes('upcoming_')) prefix = 'upcoming';
-            else if (customId.includes('nowplaying_')) prefix = 'nowplaying';
-            else if (customId.includes('airingtoday_')) prefix = 'airingtoday';
-            else if (customId.includes('genre_')) prefix = 'genre';
-
             if (session.results.length > 10) {
-                components.push(createPaginationButtons(page, Math.ceil(session.results.length / 10), `${prefix}_${sessionId}`));
+                let prefix = sessionId;
+                if (prefix.includes('_')) {
+                    prefix = prefix.split('_')[0] + '_' + prefix.split('_')[1];
+                }
+                components.push(createPaginationButtons(page, Math.ceil(session.results.length / 10), sessionId));
             }
 
             await interaction.editReply({
@@ -791,19 +776,24 @@ client.on('interactionCreate', async interaction => {
 
         if (interaction.customId.includes('genre_') && (interaction.customId.includes('_prev') || interaction.customId.includes('_next'))) {
             await interaction.deferUpdate();
-            const parts = interaction.customId.split('_');
-            const direction = parts.includes('prev') ? 'prev' : 'next';
-            const sessionId = parts[parts.length - 1];
+
+            const customId = interaction.customId;
+            let sessionId = '';
+            if (customId.includes('_prev')) {
+                sessionId = customId.replace('_prev', '');
+            } else if (customId.includes('_next')) {
+                sessionId = customId.replace('_next', '');
+            }
 
             const session = userSessions.get(sessionId);
             if (!session) {
-                await interaction.followUp({ content: 'Session expired.', ephemeral: true });
+                await interaction.followUp({ content: 'Session expired. Please run the command again.', ephemeral: true });
                 return;
             }
 
             let page = session.currentPage || 1;
-            if (direction === 'prev') page = Math.max(1, page - 1);
-            if (direction === 'next') page = page + 1;
+            if (customId.includes('_prev')) page = Math.max(1, page - 1);
+            if (customId.includes('_next')) page = page + 1;
 
             try {
                 const response = await api.get(`/genres/${session.contentType}/${session.genreId}?page=${page}&sort_by=popularity.desc`);
@@ -827,7 +817,7 @@ client.on('interactionCreate', async interaction => {
                 const components = [createSelectionButtons(sessionId, results)];
 
                 if (response.data.meta?.has_next) {
-                    components.push(createPaginationButtons(page, response.data.meta.total_pages, `genre_${sessionId}`));
+                    components.push(createPaginationButtons(page, response.data.meta.total_pages, sessionId));
                 }
 
                 await interaction.editReply({
