@@ -683,290 +683,50 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.on('interactionCreate', async interaction => {
-    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('selection_')) {
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('genre_select_')) {
         await interaction.deferUpdate();
 
-        const sessionId = interaction.customId.replace('selection_', '');
-        const session = userSessions.get(sessionId);
-        if (!session) {
-            await interaction.followUp({ content: 'Session expired.', ephemeral: true });
-            return;
-        }
-
-        const index = Number(interaction.values[0].split('_')[2]);
-        const item = session.results[index];
-
-        if (!item?.type && !item?.media_type && !session.contentType) {
-            throw new Error('Missing media type');
-        }
-
-        const type = item.type || item.media_type || session.contentType;
+        const selectedValue = interaction.values[0];
+        const parts = selectedValue.split('_');
+        const type = parts[1];
+        const genreId = parts[2];
 
         try {
-            const detailsResponse = await api.get(`/details/${type}/${item.id}`);
-            const embed = createDetailedEmbed(detailsResponse.data, type);
+            const response = await api.get(`/list?endpoint=discover/${type}&with_genres=${genreId}`);
+            const results = response.data.results || [];
 
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`watch_${type}_${item.id}`)
-                    .setLabel('Watch Now')
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId('back_to_results')
-                    .setLabel('Back to Results')
-                    .setStyle(ButtonStyle.Secondary)
-            );
-
-            await interaction.editReply({
-                embeds: [embed],
-                components: [row]
-            });
-        } catch {
-            await interaction.followUp({
-                content: 'Could not load details.',
-                ephemeral: true
-            });
-        }
-    }
-
-    if (interaction.isButton()) {
-        await interaction.deferUpdate();
-
-        if (interaction.customId === 'back_to_results') {
-            await interaction.editReply({
-                content: 'Use the command again to browse results.',
-                embeds: [],
-                components: []
-            });
-        }
-
-        if (interaction.customId.startsWith('watch_')) {
-            const parts = interaction.customId.split('_');
-            const type = parts[1];
-            const id = parts[2];
-
-            try {
-                if (type === 'tv') {
-                    const tvResponse = await api.get(`/details/tv/${id}`);
-                    const seasons = tvResponse.data.info.number_of_seasons;
-
-                    const seasonOptions = Array.from({ length: Math.min(seasons, 25) }, (_, i) => ({
-                        label: `Season ${i + 1}`,
-                        value: `season_${id}_${i + 1}`,
-                        description: `View episodes for Season ${i + 1}`
-                    }));
-
-                    const row = new ActionRowBuilder()
-                        .addComponents(
-                            new StringSelectMenuBuilder()
-                                .setCustomId('season_select')
-                                .setPlaceholder('Choose a season')
-                                .addOptions(seasonOptions)
-                        );
-
-                    await interaction.editReply({
-                        content: 'Select a season to see episodes:',
-                        components: [row]
-                    });
-                } else {
-                    const playerResponse = await api.get(`/player/${type}/${id}`);
-                    const sources = playerResponse.data.sources || [];
-
-                    if (sources.length === 0) {
-                        await interaction.followUp({ content: 'No streaming sources available right now.', ephemeral: true });
-                        return;
-                    }
-
-                    const embed = new EmbedBuilder()
-                        .setColor('White')
-                        .setTitle('Streaming Sources Available')
-                        .setDescription('Click on any link below to start watching:');
-
-                    const buttons = [];
-                    sources.slice(0, 5).forEach((source, index) => {
-                        const sourceName = source.stream_url.includes('vidsrc') ? 'VidSrc' :
-                            source.stream_url.includes('vidlink') ? 'VidLink' :
-                                source.stream_url.includes('vidsrc.cc') ? 'VidSrc Pro' :
-                                    source.stream_url.includes('2embed') ? '2Embed' :
-                                        `Source ${index + 1}`;
-
-                        buttons.push(
-                            new ButtonBuilder()
-                                .setLabel(sourceName)
-                                .setStyle(ButtonStyle.Link)
-                                .setURL(source.stream_url)
-                        );
-                    });
-
-                    const rows = [];
-                    for (let i = 0; i < buttons.length; i += 5) {
-                        rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-                    }
-
-                    await interaction.editReply({
-                        embeds: [embed],
-                        components: rows
-                    });
-                }
-            } catch (error) {
-                await interaction.followUp({ content: 'Could not load streaming sources. Please try again.', ephemeral: true });
-            }
-        }
-
-        if (interaction.customId.startsWith('random_')) {
-            const type = interaction.customId.split('_')[1];
-            const endpoint = type === 'movie' ? '/movie/popular' : '/tv/popular';
-
-            try {
-                const response = await api.get(`/list?endpoint=${endpoint}`);
-                const results = response.data.results || [];
-                const randomItem = results[Math.floor(Math.random() * results.length)];
-
-                const detailsResponse = await api.get(`/details/${type}/${randomItem.id}`);
-                const embed = createDetailedEmbed(detailsResponse.data, type);
-
-                const row = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`watch_${type}_${randomItem.id}`)
-                            .setLabel('Watch Now')
-                            .setStyle(ButtonStyle.Success),
-                        new ButtonBuilder()
-                            .setCustomId(`random_${type}`)
-                            .setLabel('Get Another Random')
-                            .setStyle(ButtonStyle.Primary)
-                    );
-
-                await interaction.editReply({
-                    embeds: [embed],
-                    components: [row]
-                });
-            } catch (error) {
-                await interaction.followUp({ content: 'Could not get random content. Please try again.', ephemeral: true });
-            }
-        }
-
-        if (interaction.customId.includes('_prev_') || interaction.customId.includes('_next_')) {
-            const [prefix, direction, currentPage] = interaction.customId.split('_');
-            const sessionId = prefix.split('_')[1];
-            const session = userSessions.get(sessionId);
-            if (!session) {
-                await interaction.followUp({ content: 'Session expired.', ephemeral: true });
+            if (results.length === 0) {
+                await interaction.followUp({ content: 'No content found for this genre.', ephemeral: true });
                 return;
             }
 
-            let page = Number(currentPage);
-            if (direction === 'prev') page = Math.max(1, page - 1);
-            if (direction === 'next') page = Math.min(Math.ceil(session.results.length / 10), page + 1);
+            const sessionId = Date.now().toString();
+            userSessions.set(sessionId, {
+                type: 'genre',
+                results: results,
+                contentType: type
+            });
 
-            const startIndex = (page - 1) * 10;
-            const embeds = session.results.slice(startIndex, startIndex + 10).map((item, index) =>
-                createMediaEmbed(item, item.type || session.contentType, startIndex + index + 1)
+            const genreName = GENRE_MAP[type][genreId] || 'Selected Genre';
+            const embeds = results.slice(0, 10).map((item, index) =>
+                createMediaEmbed(item, type, index + 1)
             );
 
-            const components = [createSelectionButtons(sessionId, session.results)];
-            if (session.results.length > 10) {
-                components.push(createPaginationButtons(page, Math.ceil(session.results.length / 10), `${prefix}`));
+            const components = [createSelectionButtons(sessionId, results)];
+
+            if (results.length > 10) {
+                components.push(createPaginationButtons(1, Math.ceil(results.length / 10), `genre_${sessionId}`));
             }
 
             await interaction.editReply({
-                content: `Page ${page}/${Math.ceil(session.results.length / 10)} - Select an item:`,
+                content: `${genreName} ${type === 'movie' ? 'Movies' : 'TV Shows'} - Select one to see details:`,
                 embeds,
                 components
             });
-        }
-    }
 
-    if (interaction.isStringSelectMenu() && interaction.customId === 'season_select') {
-        await interaction.deferUpdate();
-
-        const selectedValue = interaction.values[0];
-        const parts = selectedValue.split('_');
-        const tvId = parts[1];
-        const seasonNum = parts[2];
-
-        try {
-            const seasonResponse = await api.get(`/tv/${tvId}/season/${seasonNum}`);
-            const episodes = seasonResponse.data.data.episodes || [];
-
-            if (episodes.length === 0) {
-                await interaction.followUp({ content: 'No episodes found for this season.', ephemeral: true });
-                return;
-            }
-
-            const episodeOptions = episodes.slice(0, 25).map(ep => ({
-                label: `E${ep.episode_number}: ${ep.name.substring(0, 80)}`,
-                value: `episode_${tvId}_${seasonNum}_${ep.episode_number}`,
-                description: `${ep.rating || 'N/A'}/10 - ${ep.air_date || 'Unknown'}`
-            }));
-
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new StringSelectMenuBuilder()
-                        .setCustomId('episode_select')
-                        .setPlaceholder('Choose an episode to watch')
-                        .addOptions(episodeOptions)
-                );
-
-            await interaction.editReply({
-                content: `Season ${seasonNum} Episodes - Select one to watch:`,
-                components: [row]
-            });
+            setTimeout(() => userSessions.delete(sessionId), 600000);
         } catch (error) {
-            await interaction.followUp({ content: 'Could not load episodes. Please try again.', ephemeral: true });
-        }
-    }
-
-    if (interaction.isStringSelectMenu() && interaction.customId === 'episode_select') {
-        await interaction.deferUpdate();
-
-        const selectedValue = interaction.values[0];
-        const parts = selectedValue.split('_');
-        const tvId = parts[1];
-        const season = parts[2];
-        const episode = parts[3];
-
-        try {
-            const playerResponse = await api.get(`/player/tv/${tvId}?s=${season}&e=${episode}`);
-            const sources = playerResponse.data.sources || [];
-
-            if (sources.length === 0) {
-                await interaction.followUp({ content: 'No streaming sources available for this episode.', ephemeral: true });
-                return;
-            }
-
-            const embed = new EmbedBuilder()
-                .setColor('White')
-                .setTitle(`Season ${season} Episode ${episode}`)
-                .setDescription('Click on any link below to start watching:');
-
-            const buttons = [];
-            sources.slice(0, 5).forEach((source, index) => {
-                const sourceName = source.stream_url.includes('vidsrc') ? 'VidSrc' :
-                    source.stream_url.includes('vidlink') ? 'VidLink' :
-                        source.stream_url.includes('vidsrc.cc') ? 'VidSrc Pro' :
-                            source.stream_url.includes('2embed') ? '2Embed' :
-                                `Source ${index + 1}`;
-
-                buttons.push(
-                    new ButtonBuilder()
-                        .setLabel(sourceName)
-                        .setStyle(ButtonStyle.Link)
-                        .setURL(source.stream_url)
-                );
-            });
-
-            const rows = [];
-            for (let i = 0; i < buttons.length; i += 5) {
-                rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-            }
-
-            await interaction.editReply({
-                embeds: [embed],
-                components: rows
-            });
-        } catch (error) {
-            await interaction.followUp({ content: 'Could not load streaming sources. Please try again.', ephemeral: true });
+            await interaction.followUp({ content: 'Could not load genre content. Please try again.', ephemeral: true });
         }
     }
 });
