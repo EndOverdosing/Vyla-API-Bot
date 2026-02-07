@@ -851,7 +851,33 @@ client.on('interactionCreate', async interaction => {
         }
 
         if (interaction.customId.includes('_prev_') || interaction.customId.includes('_next_')) {
-            await interaction.followUp({ content: 'Pagination coming soon! Use the dropdown menu to select items.', ephemeral: true });
+            const [prefix, direction, currentPage] = interaction.customId.split('_');
+            const sessionId = prefix.split('_')[1];
+            const session = userSessions.get(sessionId);
+            if (!session) {
+                await interaction.followUp({ content: 'Session expired.', ephemeral: true });
+                return;
+            }
+
+            let page = Number(currentPage);
+            if (direction === 'prev') page = Math.max(1, page - 1);
+            if (direction === 'next') page = Math.min(Math.ceil(session.results.length / 10), page + 1);
+
+            const startIndex = (page - 1) * 10;
+            const embeds = session.results.slice(startIndex, startIndex + 10).map((item, index) =>
+                createMediaEmbed(item, item.type || session.contentType, startIndex + index + 1)
+            );
+
+            const components = [createSelectionButtons(sessionId, session.results)];
+            if (session.results.length > 10) {
+                components.push(createPaginationButtons(page, Math.ceil(session.results.length / 10), `${prefix}`));
+            }
+
+            await interaction.editReply({
+                content: `Page ${page}/${Math.ceil(session.results.length / 10)} - Select an item:`,
+                embeds,
+                components
+            });
         }
     }
 
