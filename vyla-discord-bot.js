@@ -209,12 +209,25 @@ async function updatePresence() {
         if (results.length > 0) {
             const randomItem = results[Math.floor(Math.random() * Math.min(20, results.length))];
             const title = randomItem.title || randomItem.name;
+            const rating = randomItem.vote_average ?? randomItem.rating ?? 0;
+            const year = (randomItem.release_date || randomItem.first_air_date || '').split('-')[0];
+
             const statusMessages = [
-                `${title}`,
+                `${title} (${year})`,
+                `${title} ⭐${rating}/10`,
                 `🎬 ${title}`,
                 `📺 ${title}`,
-                `Watching ${title}`,
-                `Now showing: ${title}`
+                `🍿 ${title} (${year})`,
+                `Now streaming: ${title}`,
+                `Trending: ${title}`,
+                `Popular: ${title}`,
+                `${title} • ${rating}⭐`,
+                `Watch ${title}`,
+                `${year} • ${title}`,
+                `⭐ ${title}`,
+                `🎥 ${title} • ${year}`,
+                `${title} is trending!`,
+                `Just added: ${title}`
             ];
             const randomMessage = statusMessages[Math.floor(Math.random() * statusMessages.length)];
             client.user.setActivity(randomMessage, { type: 3 });
@@ -229,7 +242,7 @@ async function updatePresence() {
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
     await updatePresence();
-    setInterval(updatePresence, 300000);
+    setInterval(updatePresence, 5000);
     registerCommands();
 });
 
@@ -238,14 +251,14 @@ client.on('messageCreate', async message => {
 
     if (message.mentions.has(client.user)) {
         const responses = [
-            "What's up? Need help finding something to watch? Use `/help` to see what I can do!",
-            "Hey there! Looking for movies or shows? Try `/search` or `/trending`!",
-            "Hi! I'm here to help you discover awesome content. Use `/help` to get started!",
-            "Ready to watch something amazing? Check out `/random` for a surprise pick!",
-            "Hey! I've got thousands of movies and shows ready for you. Use `/help` to explore!",
-            "What's good? Want recommendations? Try `/popular` or `/toprated`!",
-            "Yo! Need entertainment? Use `/genres` to browse by category!",
-            "Hello! Can't decide what to watch? Let me help with `/random`!"
+            "🎬 What's up? Need help finding something to watch? Use `/help` to see what I can do!",
+            "📺 Hey there! Looking for movies or shows? Try `/search` or `/trending`!",
+            "👋 Hi! I'm here to help you discover awesome content. Use `/help` to get started!",
+            "🍿 Ready to watch something amazing? Check out `/random` for a surprise pick!",
+            "✨ Hey! I've got thousands of movies and shows ready for you. Use `/help` to explore!",
+            "🎥 What's good? Want recommendations? Try `/popular` or `/toprated`!",
+            "🌟 Yo! Need entertainment? Use `/genres` to browse by category!",
+            "🎭 Hello! Can't decide what to watch? Let me help with `/random`!"
         ];
         const randomResponse = responses[Math.floor(Math.random() * responses.length)];
         await message.reply(randomResponse);
