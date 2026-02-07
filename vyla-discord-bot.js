@@ -915,7 +915,7 @@ client.on('interactionCreate', async interaction => {
             }
 
             const embed = new EmbedBuilder()
-                .setColor('#fcfcfcff')
+                .setColor('#fcfcfc')
                 .setTitle(`Season ${season} Episode ${episode}`)
                 .setDescription('Click on any link below to start watching:');
 
