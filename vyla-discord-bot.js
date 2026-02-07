@@ -4,7 +4,9 @@ require('dotenv').config();
 
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
     ]
 });
 
@@ -197,10 +199,57 @@ function createSelectionButtons(sessionId, items) {
         );
 }
 
-client.once('ready', () => {
+async function updatePresence() {
+    try {
+        const randomType = Math.random() > 0.5 ? 'movie' : 'tv';
+        const endpoint = randomType === 'movie' ? '/movie/popular' : '/tv/popular';
+        const response = await api.get(`/list?endpoint=${endpoint}&page=1`);
+        const results = response.data.results || [];
+
+        if (results.length > 0) {
+            const randomItem = results[Math.floor(Math.random() * Math.min(20, results.length))];
+            const title = randomItem.title || randomItem.name;
+            const statusMessages = [
+                `${title}`,
+                `🎬 ${title}`,
+                `📺 ${title}`,
+                `Watching ${title}`,
+                `Now showing: ${title}`
+            ];
+            const randomMessage = statusMessages[Math.floor(Math.random() * statusMessages.length)];
+            client.user.setActivity(randomMessage, { type: 3 });
+        } else {
+            client.user.setActivity('/help for commands', { type: 3 });
+        }
+    } catch (error) {
+        client.user.setActivity('/help for commands', { type: 3 });
+    }
+}
+
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
-    client.user.setActivity('/help for commands', { type: 3 });
+    await updatePresence();
+    setInterval(updatePresence, 300000);
     registerCommands();
+});
+
+client.on('messageCreate', async message => {
+    if (message.author.bot) return;
+
+    if (message.mentions.has(client.user)) {
+        const responses = [
+            "🎬 What's up? Need help finding something to watch? Use `/help` to see what I can do!",
+            "📺 Hey there! Looking for movies or shows? Try `/search` or `/trending`!",
+            "👋 Hi! I'm here to help you discover awesome content. Use `/help` to get started!",
+            "🍿 Ready to watch something amazing? Check out `/random` for a surprise pick!",
+            "✨ Hey! I've got thousands of movies and shows ready for you. Use `/help` to explore!",
+            "🎥 What's good? Want recommendations? Try `/popular` or `/toprated`!",
+            "🌟 Yo! Need entertainment? Use `/genres` to browse by category!",
+            "🎭 Hello! Can't decide what to watch? Let me help with `/random`!"
+        ];
+        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+        await message.reply(randomResponse);
+    }
 });
 
 async function registerCommands() {
@@ -339,27 +388,32 @@ client.on('interactionCreate', async interaction => {
                 const query = options.getString('title');
                 const response = await api.get(`/search?q=${encodeURIComponent(query)}&page=1`);
                 const results = response.data.results || [];
+                const totalPages = response.data.meta?.total_pages || 1;
+                const totalResults = response.data.meta?.total_results || 0;
+
                 if (results.length === 0) {
                     await interaction.editReply(`No results found for "${query}". Try a different search term.`);
                     return;
                 }
+
                 const sessionId = `search_${Date.now()}`;
                 userSessions.set(sessionId, {
                     type: 'search',
-                    results: results,
                     query: query,
                     currentPage: 1,
-                    totalPages: response.data.meta?.total_pages || 1
+                    totalPages: totalPages,
+                    totalResults: totalResults
                 });
+
                 const embeds = results.slice(0, 10).map((item, index) =>
                     createMediaEmbed(item, item.type || item.media_type, index + 1)
                 );
                 const components = [createSelectionButtons(sessionId, results)];
-                if (response.data.meta?.total_pages > 1) {
-                    components.push(createPaginationButtons(1, response.data.meta.total_pages, sessionId));
+                if (totalPages > 1) {
+                    components.push(createPaginationButtons(1, totalPages, sessionId));
                 }
                 await interaction.editReply({
-                    content: `Found ${response.data.meta?.total_results || results.length} results for "${query}". Select one to see details:`,
+                    content: `Found ${totalResults} results for "${query}". Showing page 1/${totalPages}. Select one to see details:`,
                     embeds,
                     components
                 });
@@ -409,7 +463,6 @@ client.on('interactionCreate', async interaction => {
                 const sessionId = `popular_${Date.now()}`;
                 userSessions.set(sessionId, {
                     type: 'popular',
-                    results: results,
                     contentType: type,
                     endpoint: endpoint,
                     currentPage: 1,
@@ -442,7 +495,6 @@ client.on('interactionCreate', async interaction => {
                 const sessionId = `toprated_${Date.now()}`;
                 userSessions.set(sessionId, {
                     type: 'toprated',
-                    results: results,
                     contentType: type,
                     endpoint: endpoint,
                     currentPage: 1,
@@ -504,7 +556,6 @@ client.on('interactionCreate', async interaction => {
                 const sessionId = `upcoming_${Date.now()}`;
                 userSessions.set(sessionId, {
                     type: 'upcoming',
-                    results: results,
                     contentType: 'movie',
                     endpoint: '/movie/upcoming',
                     currentPage: 1,
@@ -535,7 +586,6 @@ client.on('interactionCreate', async interaction => {
                 const sessionId = `nowplaying_${Date.now()}`;
                 userSessions.set(sessionId, {
                     type: 'nowplaying',
-                    results: results,
                     contentType: 'movie',
                     endpoint: '/movie/now_playing',
                     currentPage: 1,
@@ -566,7 +616,6 @@ client.on('interactionCreate', async interaction => {
                 const sessionId = `airingtoday_${Date.now()}`;
                 userSessions.set(sessionId, {
                     type: 'airingtoday',
-                    results: results,
                     contentType: 'tv',
                     endpoint: '/tv/airing_today',
                     currentPage: 1,
@@ -757,13 +806,13 @@ client.on('interactionCreate', async interaction => {
             try {
                 let results = [];
                 let totalPages = session.totalPages || 1;
-                let totalResults = 0;
+                let totalResults = session.totalResults || 0;
 
                 if (session.type === 'search') {
                     const response = await api.get(`/search?q=${encodeURIComponent(session.query)}&page=${page}`);
                     results = response.data.results || [];
                     totalPages = response.data.meta?.total_pages || 1;
-                    totalResults = response.data.meta?.total_results || results.length;
+                    totalResults = response.data.meta?.total_results || 0;
                 } else if (session.type === 'genre') {
                     const response = await api.get(`/genres/${session.contentType}/${session.genreId}?page=${page}&sort_by=popularity.desc`);
                     results = response.data.results || [];
@@ -782,9 +831,9 @@ client.on('interactionCreate', async interaction => {
                     return;
                 }
 
-                session.results = results;
                 session.currentPage = page;
                 session.totalPages = totalPages;
+                if (totalResults > 0) session.totalResults = totalResults;
                 userSessions.set(sessionId, session);
 
                 const embeds = results.slice(0, 10).map((item, index) =>
@@ -798,7 +847,7 @@ client.on('interactionCreate', async interaction => {
 
                 let content = '';
                 if (session.type === 'search') {
-                    content = `Found ${totalResults} results for "${session.query}". Page ${page}/${totalPages}`;
+                    content = `Found ${session.totalResults} results for "${session.query}". Showing page ${page}/${totalPages}. Select one to see details:`;
                 } else if (session.type === 'genre') {
                     const genreName = GENRE_MAP[session.contentType][session.genreId] || 'Selected Genre';
                     content = `${genreName} ${session.contentType === 'movie' ? 'Movies' : 'TV Shows'} - Page ${page}/${totalPages}`;
@@ -909,7 +958,21 @@ client.on('interactionCreate', async interaction => {
             return;
         }
         const index = Number(interaction.values[0].split('_')[2]);
-        const item = session.results[index];
+
+        let item;
+        if (session.type === 'search' || session.type === 'genre' || session.endpoint) {
+            const response = session.type === 'search'
+                ? await api.get(`/search?q=${encodeURIComponent(session.query)}&page=${session.currentPage}`)
+                : session.type === 'genre'
+                    ? await api.get(`/genres/${session.contentType}/${session.genreId}?page=${session.currentPage}&sort_by=popularity.desc`)
+                    : await api.get(`/list?endpoint=${session.endpoint}&page=${session.currentPage}`);
+            const currentResults = response.data.results || [];
+            item = currentResults[index];
+        } else {
+            const startIndex = (session.currentPage - 1) * 10;
+            item = session.results[startIndex + index];
+        }
+
         if (!item) {
             await interaction.followUp({ content: 'Item not found.', ephemeral: true });
             return;
@@ -957,7 +1020,6 @@ client.on('interactionCreate', async interaction => {
             const sessionId = `genre_${Date.now()}`;
             userSessions.set(sessionId, {
                 type: 'genre',
-                results: results,
                 contentType: type,
                 genreId: genreId,
                 currentPage: 1,
