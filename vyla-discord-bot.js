@@ -270,7 +270,7 @@ function createDetailedEmbed(data, type) {
     }
 
     if (info.homepage) {
-        embed.addFields({ name: '🔗 Official Site', value: `[Visit Website](${info.homepage})` });
+        embed.addFields({ name: 'Official Site', value: `[Visit Website](${info.homepage})` });
     }
 
     if (info.title_image) {
@@ -941,7 +941,7 @@ client.on('interactionCreate', async interaction => {
             let foundSessionKey = null;
 
             for (const [sessionKey, session] of userSessions.entries()) {
-                if (session && session.messageId === interaction.message.id) {
+                if (session && session.detailMessageId === interaction.message.id) {
                     foundSession = session;
                     foundSessionKey = sessionKey;
                     break;
@@ -950,7 +950,7 @@ client.on('interactionCreate', async interaction => {
 
             if (!foundSession) {
                 for (const [sessionKey, session] of userSessions.entries()) {
-                    if (session && session.interactionId === interaction.id) {
+                    if (session && session.messageId === interaction.message.id) {
                         foundSession = session;
                         foundSessionKey = sessionKey;
                         break;
@@ -982,6 +982,7 @@ client.on('interactionCreate', async interaction => {
 
                     const reply = await interaction.editReply({ content, embeds, components });
                     foundSession.messageId = reply.id;
+                    delete foundSession.detailMessageId;
                     userSessions.set(foundSessionKey, foundSession);
                     return;
 
@@ -998,6 +999,7 @@ client.on('interactionCreate', async interaction => {
 
                     const reply = await interaction.editReply({ content: 'Trending now - Select one to see details:', embeds, components });
                     foundSession.messageId = reply.id;
+                    delete foundSession.detailMessageId;
                     userSessions.set(foundSessionKey, foundSession);
                     return;
 
@@ -1026,6 +1028,7 @@ client.on('interactionCreate', async interaction => {
 
                     const reply = await interaction.editReply({ content, embeds, components });
                     foundSession.messageId = reply.id;
+                    delete foundSession.detailMessageId;
                     userSessions.set(foundSessionKey, foundSession);
                     return;
 
@@ -1044,6 +1047,7 @@ client.on('interactionCreate', async interaction => {
 
                     const reply = await interaction.editReply({ content, embeds, components });
                     foundSession.messageId = reply.id;
+                    delete foundSession.detailMessageId;
                     userSessions.set(foundSessionKey, foundSession);
                     return;
                 }
@@ -1283,7 +1287,7 @@ client.on('interactionCreate', async interaction => {
 
                     if (i === 0 && crew.directors?.length) {
                         embed.addFields({
-                            name: '🎬 Director(s)',
+                            name: 'Director(s)',
                             value: crew.directors.map(d => d.name).join(', '),
                             inline: false
                         });
@@ -1291,7 +1295,7 @@ client.on('interactionCreate', async interaction => {
 
                     if (i === 0 && crew.writers?.length) {
                         embed.addFields({
-                            name: '✍️ Writer(s)',
+                            name: 'Writer(s)',
                             value: crew.writers.slice(0, 3).map(w => w.name).join(', '),
                             inline: false
                         });
@@ -1317,7 +1321,7 @@ client.on('interactionCreate', async interaction => {
                     .addComponents(
                         new ButtonBuilder()
                             .setCustomId('back_to_results')
-                            .setLabel('Back to Details')
+                            .setLabel('Back')
                             .setStyle(ButtonStyle.Secondary)
                     );
 
@@ -1368,35 +1372,35 @@ client.on('interactionCreate', async interaction => {
 
                 if (trailers.length > 0) {
                     const trailerList = trailers.slice(0, 5).map(v =>
-                        `🎬 [${v.name}](${v.url})`
+                        `[${v.name}](${v.url})`
                     ).join('\n');
                     embed.addFields({ name: `Trailers (${trailers.length})`, value: trailerList, inline: false });
                 }
 
                 if (teasers.length > 0) {
                     const teaserList = teasers.slice(0, 3).map(v =>
-                        `🎥 [${v.name}](${v.url})`
+                        `[${v.name}](${v.url})`
                     ).join('\n');
                     embed.addFields({ name: `Teasers (${teasers.length})`, value: teaserList, inline: false });
                 }
 
                 if (clips.length > 0) {
                     const clipList = clips.slice(0, 5).map(v =>
-                        `📹 [${v.name}](${v.url})`
+                        `[${v.name}](${v.url})`
                     ).join('\n');
                     embed.addFields({ name: `Clips (${clips.length})`, value: clipList, inline: false });
                 }
 
                 if (featurettes.length > 0) {
                     const featuretteList = featurettes.slice(0, 3).map(v =>
-                        `🎞️ [${v.name}](${v.url})`
+                        `[${v.name}](${v.url})`
                     ).join('\n');
                     embed.addFields({ name: `Featurettes (${featurettes.length})`, value: featuretteList, inline: false });
                 }
 
                 if (behindScenes.length > 0) {
                     const behindList = behindScenes.slice(0, 3).map(v =>
-                        `🎭 [${v.name}](${v.url})`
+                        `[${v.name}](${v.url})`
                     ).join('\n');
                     embed.addFields({ name: `Behind the Scenes (${behindScenes.length})`, value: behindList, inline: false });
                 }
@@ -1415,7 +1419,7 @@ client.on('interactionCreate', async interaction => {
                 buttons.push(
                     new ButtonBuilder()
                         .setCustomId('back_to_results')
-                        .setLabel('Back to Details')
+                        .setLabel('Back')
                         .setStyle(ButtonStyle.Secondary)
                 );
 
@@ -1599,7 +1603,7 @@ client.on('interactionCreate', async interaction => {
                 components: rows
             });
 
-            session.messageId = reply.id;
+            session.detailMessageId = reply.id;
             userSessions.set(sessionId, session);
         } catch (error) {
             console.error('Selection error:', error);
