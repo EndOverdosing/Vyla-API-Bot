@@ -11,6 +11,7 @@ const client = new Client({
 });
 
 const API_BASE = 'https://vyla-api.vercel.app/api';
+const ALLOWED_CHANNEL_ID = process.env.ALLOWED_CHANNEL_ID || '1469774727298941050';
 
 const api = axios.create({
     baseURL: API_BASE,
@@ -78,24 +79,7 @@ function filterSourcesByQuality(sources) {
             uniqueSources.push(source);
         }
     }
-
-    const highQuality = uniqueSources.filter(s =>
-        s.stream_url.includes('4k') ||
-        s.stream_url.includes('1080') ||
-        s.name?.includes('4K') ||
-        s.name?.includes('1080p') ||
-        s.name?.includes('VidEasy') ||
-        s.name?.includes('VidFast')
-    );
-
-    const standardQuality = uniqueSources.filter(s =>
-        s.stream_url.includes('720') ||
-        (!s.stream_url.includes('4k') &&
-            !s.stream_url.includes('1080') &&
-            !s.stream_url.includes('720'))
-    );
-
-    return [...highQuality, ...standardQuality];
+    return uniqueSources;
 }
 
 function createSourceButtons(sources) {
@@ -114,13 +98,6 @@ function createSourceButtons(sources) {
         let sourceName = source.name || 'Unknown';
         if (sourceName.length > 30) {
             sourceName = sourceName.substring(0, 27) + '...';
-        }
-
-        let quality = '';
-        if (source.stream_url.includes('4k') || source.name?.includes('4K')) {
-            quality = ' 🔥';
-        } else if (source.stream_url.includes('1080') || source.name?.includes('1080')) {
-            quality = ' ⭐';
         }
 
         const language = source.isFrench ? ' 🇫🇷' : '';
@@ -204,6 +181,20 @@ function createDetailedEmbed(data, type) {
         embed.addFields({
             name: 'Cast',
             value: data.cast.slice(0, 5).map(c => c.name).join(', ')
+        });
+    }
+
+    if (info.tagline) {
+        embed.addFields({
+            name: 'Tagline',
+            value: info.tagline
+        });
+    }
+
+    if (info.trailer_url) {
+        embed.addFields({
+            name: 'Trailer',
+            value: `[Watch Trailer](${info.trailer_url})`
         });
     }
 
@@ -404,7 +395,14 @@ async function registerCommands() {
                     .addChoices(
                         { name: 'Movie', value: 'movie' },
                         { name: 'TV Show', value: 'tv' }
-                    ))
+                    )),
+        new SlashCommandBuilder()
+            .setName('cast')
+            .setDescription('Get detailed information about an actor or actress')
+            .addIntegerOption(option =>
+                option.setName('id')
+                    .setDescription('Actor/Actress TMDB ID')
+                    .setRequired(true))
     ];
     try {
         console.log('Registering slash commands...');
@@ -417,7 +415,7 @@ async function registerCommands() {
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
-    if (interaction.channelId !== '1469774727298941050') {
+    if (interaction.channelId !== ALLOWED_CHANNEL_ID) {
         return interaction.reply({
             content: 'This bot can only be used in the designated channel.',
             ephemeral: true
@@ -456,6 +454,11 @@ client.on('interactionCreate', async interaction => {
                         {
                             name: 'Random Pick',
                             value: '`/random type:Movie` - Can\'t decide? Let me pick something for you!',
+                            inline: false
+                        },
+                        {
+                            name: 'Cast Information',
+                            value: '`/cast id:3223` - Get detailed info about actors and actresses',
                             inline: false
                         },
                         {
@@ -804,6 +807,44 @@ client.on('interactionCreate', async interaction => {
                     embeds: [embed],
                     components: [row]
                 });
+                break;
+            }
+            case 'cast': {
+                const castId = options.getInteger('id');
+                const response = await api.get(`/cast/${castId}`);
+                const castData = response.data.data;
+
+                const embed = new EmbedBuilder()
+                    .setColor('White')
+                    .setTitle(castData.name)
+                    .setDescription(castData.biography ?
+                        (castData.biography.length > 500 ? castData.biography.slice(0, 497) + '...' : castData.biography)
+                        : 'No biography available')
+                    .addFields(
+                        { name: 'Known For', value: castData.known_for_department || 'N/A', inline: true },
+                        { name: 'Birthday', value: castData.birthday || 'N/A', inline: true },
+                        { name: 'Place of Birth', value: castData.place_of_birth || 'N/A', inline: false }
+                    );
+
+                if (castData.profile) {
+                    embed.setThumbnail(castData.profile);
+                }
+
+                if (castData.known_for?.movies?.length) {
+                    const movies = castData.known_for.movies.slice(0, 5).map(m =>
+                        `${m.title} (${m.year}) - ${m.character}`
+                    ).join('\n');
+                    embed.addFields({ name: 'Notable Movies', value: movies });
+                }
+
+                if (castData.known_for?.shows?.length) {
+                    const shows = castData.known_for.shows.slice(0, 5).map(s =>
+                        `${s.name} (${s.year}) - ${s.character}`
+                    ).join('\n');
+                    embed.addFields({ name: 'Notable TV Shows', value: shows });
+                }
+
+                await interaction.editReply({ embeds: [embed] });
                 break;
             }
             default:
