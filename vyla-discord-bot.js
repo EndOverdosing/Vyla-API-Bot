@@ -895,7 +895,6 @@ client.on('interactionCreate', async interaction => {
                         (castData.biography.length > 500 ? castData.biography.slice(0, 497) + '...' : castData.biography)
                         : 'No biography available')
                     .addFields(
-                        { name: 'Known For', value: castData.known_for_department || 'N/A', inline: true },
                         { name: 'Birthday', value: castData.birthday || 'N/A', inline: true },
                         { name: 'Place of Birth', value: castData.place_of_birth || 'N/A', inline: false }
                     );
@@ -1320,7 +1319,6 @@ client.on('interactionCreate', async interaction => {
                         .setTitle(member.name)
                         .addFields(
                             { name: 'Character', value: member.character || 'Unknown', inline: true },
-                            { name: 'Known For', value: member.known_for_department || 'Acting', inline: true }
                         );
 
                     if (member.profile) {
@@ -1336,7 +1334,7 @@ client.on('interactionCreate', async interaction => {
                     buttons.push(
                         new ButtonBuilder()
                             .setCustomId(`view_cast_${type}_${id}_${page - 1}`)
-                            .setLabel('◀ Previous')
+                            .setLabel('Previous')
                             .setStyle(ButtonStyle.Primary)
                     );
                 }
@@ -1345,7 +1343,7 @@ client.on('interactionCreate', async interaction => {
                     buttons.push(
                         new ButtonBuilder()
                             .setCustomId(`view_cast_${type}_${id}_${page + 1}`)
-                            .setLabel('Next ▶')
+                            .setLabel('Next')
                             .setStyle(ButtonStyle.Primary)
                     );
                 }
