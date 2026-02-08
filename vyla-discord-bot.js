@@ -69,27 +69,16 @@ const GENRE_MAP = {
 
 const userSessions = new Map();
 
-function filterSourcesByQuality(sources) {
-    const seenUrls = new Set();
-    const uniqueSources = [];
 
-    for (const source of sources) {
-        if (!seenUrls.has(source.stream_url)) {
-            seenUrls.add(source.stream_url);
-            uniqueSources.push(source);
-        }
-    }
-    return uniqueSources;
-}
 
 function createSourceButtons(sources) {
     const rows = [];
     const maxButtons = 25;
     const buttonsPerRow = 5;
 
-    const filteredSources = filterSourcesByQuality(sources).slice(0, maxButtons);
+    const displaySources = sources.slice(0, maxButtons);
 
-    filteredSources.forEach((source, index) => {
+    displaySources.forEach((source, index) => {
         const rowIndex = Math.floor(index / buttonsPerRow);
         if (!rows[rowIndex]) {
             rows[rowIndex] = new ActionRowBuilder();
@@ -98,6 +87,13 @@ function createSourceButtons(sources) {
         let sourceName = source.name || 'Unknown';
         if (sourceName.length > 30) {
             sourceName = sourceName.substring(0, 27) + '...';
+        }
+
+        let quality = '';
+        if (source.stream_url.includes('4k') || source.name?.includes('4K')) {
+            quality = ' 🔥';
+        } else if (source.stream_url.includes('1080') || source.name?.includes('1080')) {
+            quality = ' ⭐';
         }
 
         const language = source.isFrench ? ' 🇫🇷' : '';
@@ -115,24 +111,42 @@ function createSourceButtons(sources) {
 
 function createMediaEmbed(item, type, index) {
     const rating = item.vote_average ?? item.rating ?? 'N/A';
+    const popularity = item.popularity ? item.popularity.toFixed(1) : 'N/A';
     const embed = new EmbedBuilder()
         .setColor('White')
         .setTitle(`${index}. ${item.title || item.name}`)
         .setDescription(
             item.overview
-                ? item.overview.length > 200
-                    ? item.overview.slice(0, 197) + '...'
+                ? item.overview.length > 300
+                    ? item.overview.slice(0, 297) + '...'
                     : item.overview
                 : 'No description available'
         )
         .addFields(
-            { name: 'Rating', value: `${rating}/10`, inline: true },
+            { name: 'Rating', value: `⭐ ${rating}/10`, inline: true },
             {
                 name: 'Year',
                 value: (item.release_date || item.first_air_date || item.year || 'Unknown').toString().split('-')[0],
                 inline: true
-            }
+            },
+            { name: 'Popularity', value: `🔥 ${popularity}`, inline: true }
         );
+
+    if (item.genre_ids && item.genre_ids.length > 0) {
+        const genreMap = type === 'tv' ? GENRE_MAP.tv : GENRE_MAP.movie;
+        const genreNames = item.genre_ids
+            .map(id => genreMap[id.toString()])
+            .filter(Boolean)
+            .slice(0, 3)
+            .join(', ');
+        if (genreNames) {
+            embed.addFields({ name: 'Genres', value: genreNames, inline: false });
+        }
+    }
+
+    if (item.adult) {
+        embed.addFields({ name: '⚠️', value: 'Adult Content', inline: true });
+    }
 
     if (item.title_image) {
         embed.setThumbnail(item.title_image);
@@ -142,6 +156,12 @@ function createMediaEmbed(item, type, index) {
         embed.setThumbnail(`https://image.tmdb.org/t/p/w342${item.poster_path}`);
     }
 
+    if (item.backdrop) {
+        embed.setImage(item.backdrop);
+    } else if (item.backdrop_path) {
+        embed.setImage(`https://image.tmdb.org/t/p/w780${item.backdrop_path}`);
+    }
+
     return embed;
 }
 
@@ -149,25 +169,50 @@ function createDetailedEmbed(data, type) {
     const info = data.data?.info || data.info || data.data;
     if (!info) throw new Error('Missing details payload');
     const rating = info.vote_average ?? info.rating ?? 'N/A';
+    const popularity = info.popularity ? info.popularity.toFixed(1) : 'N/A';
+    const voteCount = info.vote_count ?? 'N/A';
+
     const embed = new EmbedBuilder()
         .setColor('White')
-        .setTitle(info.title || info.name)
-        .setDescription(info.overview || 'No description available')
-        .addFields(
-            { name: 'Rating', value: `${rating}/10`, inline: true },
-            { name: 'Status', value: info.status || 'Unknown', inline: true }
-        );
+        .setTitle(info.title || info.name);
+
+    if (info.tagline) {
+        embed.setDescription(`*"${info.tagline}"*\n\n${info.overview || 'No description available'}`);
+    } else {
+        embed.setDescription(info.overview || 'No description available');
+    }
+
+    embed.addFields(
+        { name: 'Rating', value: `⭐ ${rating}/10 (${voteCount} votes)`, inline: true },
+        { name: 'Status', value: info.status || 'Unknown', inline: true },
+        { name: 'Popularity', value: `🔥 ${popularity}`, inline: true }
+    );
 
     if (type === 'movie') {
         embed.addFields(
             { name: 'Release', value: info.release_date || 'Unknown', inline: true },
             { name: 'Runtime', value: info.runtime ? `${info.runtime} min` : 'N/A', inline: true }
         );
+        if (info.budget && info.budget > 0) {
+            embed.addFields({ name: 'Budget', value: `$${(info.budget / 1000000).toFixed(1)}M`, inline: true });
+        }
+        if (info.revenue && info.revenue > 0) {
+            embed.addFields({ name: 'Revenue', value: `$${(info.revenue / 1000000).toFixed(1)}M`, inline: true });
+        }
     } else {
         embed.addFields(
             { name: 'Seasons', value: info.number_of_seasons?.toString() || 'N/A', inline: true },
             { name: 'Episodes', value: info.number_of_episodes?.toString() || 'N/A', inline: true }
         );
+        if (info.first_air_date) {
+            embed.addFields({ name: 'First Aired', value: info.first_air_date, inline: true });
+        }
+        if (info.last_air_date) {
+            embed.addFields({ name: 'Last Aired', value: info.last_air_date, inline: true });
+        }
+        if (info.type) {
+            embed.addFields({ name: 'Type', value: info.type, inline: true });
+        }
     }
 
     if (info.genres?.length) {
@@ -177,25 +222,57 @@ function createDetailedEmbed(data, type) {
         });
     }
 
+    if (info.original_language) {
+        embed.addFields({ name: 'Language', value: info.original_language.toUpperCase(), inline: true });
+    }
+
+    if (info.production_companies?.length) {
+        const companies = info.production_companies.slice(0, 3).map(c => c.name).join(', ');
+        embed.addFields({ name: 'Production', value: companies });
+    }
+
+    if (info.spoken_languages?.length) {
+        const languages = info.spoken_languages.slice(0, 5).map(l => l.english_name).join(', ');
+        embed.addFields({ name: 'Spoken Languages', value: languages });
+    }
+
     if (data.cast?.length) {
+        const castList = data.cast.slice(0, 8).map(c => c.name).join(', ');
         embed.addFields({
-            name: 'Cast',
-            value: data.cast.slice(0, 5).map(c => c.name).join(', ')
+            name: `Cast (${data.cast.length} total)`,
+            value: castList
         });
     }
 
-    if (info.tagline) {
-        embed.addFields({
-            name: 'Tagline',
-            value: info.tagline
-        });
+    if (data.crew?.directors?.length) {
+        const directors = data.crew.directors.map(d => d.name).join(', ');
+        embed.addFields({ name: 'Director(s)', value: directors });
     }
 
-    if (info.trailer_url) {
-        embed.addFields({
-            name: 'Trailer',
-            value: `[Watch Trailer](${info.trailer_url})`
-        });
+    if (data.crew?.writers?.length) {
+        const writers = data.crew.writers.slice(0, 3).map(w => w.name).join(', ');
+        embed.addFields({ name: 'Writer(s)', value: writers });
+    }
+
+    if (info.videos?.length) {
+        const trailers = info.videos.filter(v => v.type === 'Trailer').slice(0, 2);
+        const clips = info.videos.filter(v => v.type === 'Clip').slice(0, 2);
+
+        let videoText = '';
+        if (trailers.length > 0) {
+            videoText += `**Trailers:**\n${trailers.map(v => `[${v.name}](${v.url})`).join('\n')}`;
+        }
+        if (clips.length > 0) {
+            if (videoText) videoText += '\n\n';
+            videoText += `**Clips:**\n${clips.map(v => `[${v.name}](${v.url})`).join('\n')}`;
+        }
+        if (videoText) {
+            embed.addFields({ name: `Videos (${info.videos.length} total)`, value: videoText });
+        }
+    }
+
+    if (info.homepage) {
+        embed.addFields({ name: '🔗 Official Site', value: `[Visit Website](${info.homepage})` });
     }
 
     if (info.title_image) {
@@ -1180,6 +1257,83 @@ client.on('interactionCreate', async interaction => {
             }
             return;
         }
+
+        if (interaction.customId.startsWith('view_cast_')) {
+            await interaction.deferUpdate();
+            const parts = interaction.customId.split('_');
+            const type = parts[2];
+            const id = parts[3];
+
+            try {
+                const detailsResponse = await api.get(`/details/${type}/${id}`);
+                const cast = detailsResponse.data.cast || [];
+                const crew = detailsResponse.data.crew || {};
+
+                if (cast.length === 0 && (!crew.directors || crew.directors.length === 0)) {
+                    await interaction.followUp({ content: 'No cast information available.', ephemeral: true });
+                    return;
+                }
+
+                const embeds = [];
+                const itemsPerEmbed = 5;
+
+                for (let i = 0; i < Math.min(cast.length, 20); i += itemsPerEmbed) {
+                    const castSlice = cast.slice(i, i + itemsPerEmbed);
+                    const embed = new EmbedBuilder()
+                        .setColor('White')
+                        .setTitle(i === 0 ? `Cast & Crew - ${detailsResponse.data.info?.title || detailsResponse.data.info?.name}` : `Cast (continued)`);
+
+                    if (i === 0 && crew.directors?.length) {
+                        embed.addFields({
+                            name: '🎬 Director(s)',
+                            value: crew.directors.map(d => d.name).join(', '),
+                            inline: false
+                        });
+                    }
+
+                    if (i === 0 && crew.writers?.length) {
+                        embed.addFields({
+                            name: '✍️ Writer(s)',
+                            value: crew.writers.slice(0, 3).map(w => w.name).join(', '),
+                            inline: false
+                        });
+                    }
+
+                    castSlice.forEach(member => {
+                        const profile = member.profile ? `[View Profile](${member.view_cast_link})` : 'No profile available';
+                        embed.addFields({
+                            name: `${member.name}`,
+                            value: `**Character:** ${member.character}\n**Known For:** ${member.known_for_department}\n${profile}`,
+                            inline: true
+                        });
+                    });
+
+                    if (castSlice[0]?.profile) {
+                        embed.setThumbnail(castSlice[0].profile);
+                    }
+
+                    embeds.push(embed);
+                }
+
+                const backButton = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('back_to_results')
+                            .setLabel('Back to Details')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                await interaction.editReply({
+                    content: `Showing ${Math.min(cast.length, 20)} of ${cast.length} cast members:`,
+                    embeds: embeds,
+                    components: [backButton]
+                });
+            } catch (error) {
+                console.error('View cast error:', error);
+                await interaction.followUp({ content: 'Could not load cast information. Please try again.', ephemeral: true });
+            }
+            return;
+        }
     }
 
     if (interaction.isStringSelectMenu() && interaction.customId === 'season_select') {
@@ -1297,7 +1451,8 @@ client.on('interactionCreate', async interaction => {
             const type = item.type || item.media_type || session.contentType;
             const detailsResponse = await api.get(`/details/${type}/${item.id}`);
             const embed = createDetailedEmbed(detailsResponse.data, type);
-            const row = new ActionRowBuilder().addComponents(
+
+            const buttons = [
                 new ButtonBuilder()
                     .setCustomId(`watch_${type}_${item.id}`)
                     .setLabel('Watch Now')
@@ -1306,7 +1461,19 @@ client.on('interactionCreate', async interaction => {
                     .setCustomId('back_to_results')
                     .setLabel('Back to Results')
                     .setStyle(ButtonStyle.Secondary)
-            );
+            ];
+
+            if (detailsResponse.data.cast && detailsResponse.data.cast.length > 0) {
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(`view_cast_${type}_${item.id}`)
+                        .setLabel(`View Cast (${detailsResponse.data.cast.length})`)
+                        .setStyle(ButtonStyle.Primary)
+                );
+            }
+
+            const row = new ActionRowBuilder().addComponents(...buttons);
+
             const reply = await interaction.editReply({
                 embeds: [embed],
                 components: [row]
