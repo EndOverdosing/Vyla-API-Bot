@@ -1265,6 +1265,7 @@ client.on('interactionCreate', async interaction => {
             const parts = interaction.customId.split('_');
             const type = parts[2];
             const id = parts[3];
+            const page = parseInt(parts[4]) || 1;
 
             try {
                 const detailsResponse = await api.get(`/details/${type}/${id}`);
@@ -1276,16 +1277,19 @@ client.on('interactionCreate', async interaction => {
                     return;
                 }
 
-                const embeds = [];
-                const itemsPerEmbed = 5;
+                const castPerPage = 10;
+                const totalPages = Math.ceil(cast.length / castPerPage);
+                const startIndex = (page - 1) * castPerPage;
+                const endIndex = Math.min(startIndex + castPerPage, cast.length);
+                const castSlice = cast.slice(startIndex, endIndex);
 
-                for (let i = 0; i < Math.min(cast.length, 20); i += itemsPerEmbed) {
-                    const castSlice = cast.slice(i, i + itemsPerEmbed);
-                    const embed = new EmbedBuilder()
-                        .setColor('White')
-                        .setTitle(i === 0 ? `Cast & Crew - ${detailsResponse.data.info?.title || detailsResponse.data.info?.name}` : `Cast (continued)`);
+                const embed = new EmbedBuilder()
+                    .setColor('White')
+                    .setTitle(`Cast & Crew - ${detailsResponse.data.info?.title || detailsResponse.data.info?.name}`)
+                    .setDescription(`Showing ${startIndex + 1}-${endIndex} of ${cast.length} cast members`);
 
-                    if (i === 0 && crew.directors?.length) {
+                if (page === 1) {
+                    if (crew.directors?.length) {
                         embed.addFields({
                             name: 'Director(s)',
                             value: crew.directors.map(d => d.name).join(', '),
@@ -1293,42 +1297,61 @@ client.on('interactionCreate', async interaction => {
                         });
                     }
 
-                    if (i === 0 && crew.writers?.length) {
+                    if (crew.writers?.length) {
                         embed.addFields({
                             name: 'Writer(s)',
                             value: crew.writers.slice(0, 3).map(w => w.name).join(', '),
                             inline: false
                         });
                     }
-
-                    castSlice.forEach(member => {
-                        const profile = member.profile ? `[View Profile](${member.view_cast_link})` : 'No profile available';
-                        embed.addFields({
-                            name: `${member.name}`,
-                            value: `**Character:** ${member.character}\n**Known For:** ${member.known_for_department}\n${profile}`,
-                            inline: true
-                        });
-                    });
-
-                    if (castSlice[0]?.profile) {
-                        embed.setThumbnail(castSlice[0].profile);
-                    }
-
-                    embeds.push(embed);
                 }
 
-                const backButton = new ActionRowBuilder()
-                    .addComponents(
+                castSlice.forEach(member => {
+                    const profile = member.profile ? `[View Profile](${member.view_cast_link})` : 'No profile available';
+                    embed.addFields({
+                        name: `${member.name}`,
+                        value: `**Character:** ${member.character}\n**Known For:** ${member.known_for_department}\n${profile}`,
+                        inline: true
+                    });
+                });
+
+                if (castSlice[0]?.profile) {
+                    embed.setThumbnail(castSlice[0].profile);
+                }
+
+                const buttons = [];
+
+                if (page > 1) {
+                    buttons.push(
                         new ButtonBuilder()
-                            .setCustomId('back_to_results')
-                            .setLabel('Back')
-                            .setStyle(ButtonStyle.Secondary)
+                            .setCustomId(`view_cast_${type}_${id}_${page - 1}`)
+                            .setLabel('Previous')
+                            .setStyle(ButtonStyle.Primary)
                     );
+                }
+
+                if (page < totalPages) {
+                    buttons.push(
+                        new ButtonBuilder()
+                            .setCustomId(`view_cast_${type}_${id}_${page + 1}`)
+                            .setLabel('Next')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                }
+
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(`back_to_detail_${type}_${id}`)
+                        .setLabel('Back to Details')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+                const row = new ActionRowBuilder().addComponents(...buttons);
 
                 await interaction.editReply({
-                    content: `Showing ${Math.min(cast.length, 20)} of ${cast.length} cast members:`,
-                    embeds: embeds,
-                    components: [backButton]
+                    content: null,
+                    embeds: [embed],
+                    components: [row]
                 });
             } catch (error) {
                 console.error('View cast error:', error);
@@ -1418,20 +1441,154 @@ client.on('interactionCreate', async interaction => {
 
                 buttons.push(
                     new ButtonBuilder()
-                        .setCustomId('back_to_results')
-                        .setLabel('Back')
+                        .setCustomId(`back_to_detail_${type}_${id}`)
+                        .setLabel('Back to Details')
                         .setStyle(ButtonStyle.Secondary)
                 );
 
                 const backButton = new ActionRowBuilder().addComponents(...buttons);
 
                 await interaction.editReply({
+                    content: null,
                     embeds: [embed],
                     components: [backButton]
                 });
             } catch (error) {
                 console.error('View trailers error:', error);
                 await interaction.followUp({ content: 'Could not load videos. Please try again.', ephemeral: true });
+            }
+            return;
+        }
+        if (interaction.customId.startsWith('view_clips_')) {
+            await interaction.deferUpdate();
+            const parts = interaction.customId.split('_');
+            const type = parts[2];
+            const id = parts[3];
+
+            try {
+                const detailsResponse = await api.get(`/details/${type}/${id}`);
+                const info = detailsResponse.data.info || detailsResponse.data.data?.info;
+                const videos = info?.videos || [];
+                const clips = videos.filter(v => v.type === 'Clip');
+
+                if (clips.length === 0) {
+                    await interaction.followUp({ content: 'No clips available.', ephemeral: true });
+                    return;
+                }
+
+                const embed = new EmbedBuilder()
+                    .setColor('White')
+                    .setTitle(`Clips - ${info.title || info.name}`)
+                    .setDescription(`${clips.length} clips available`);
+
+                if (info.title_image) {
+                    embed.setThumbnail(info.title_image);
+                } else if (info.poster) {
+                    embed.setThumbnail(info.poster);
+                }
+
+                const clipList = clips.slice(0, 10).map(v =>
+                    `[${v.name}](${v.url})`
+                ).join('\n');
+                embed.addFields({ name: `All Clips`, value: clipList, inline: false });
+
+                const buttons = [
+                    new ButtonBuilder()
+                        .setCustomId(`back_to_detail_${type}_${id}`)
+                        .setLabel('Back to Details')
+                        .setStyle(ButtonStyle.Secondary)
+                ];
+
+                const row = new ActionRowBuilder().addComponents(...buttons);
+
+                await interaction.editReply({
+                    content: null,
+                    embeds: [embed],
+                    components: [row]
+                });
+            } catch (error) {
+                console.error('View clips error:', error);
+                await interaction.followUp({ content: 'Could not load clips. Please try again.', ephemeral: true });
+            }
+            return;
+        }
+
+        if (interaction.customId.startsWith('back_to_detail_')) {
+            await interaction.deferUpdate();
+            const parts = interaction.customId.split('_');
+            const type = parts[3];
+            const id = parts[4];
+
+            try {
+                const detailsResponse = await api.get(`/details/${type}/${id}`);
+                const embed = createDetailedEmbed(detailsResponse.data, type);
+
+                const buttons = [
+                    new ButtonBuilder()
+                        .setCustomId(`watch_${type}_${id}`)
+                        .setLabel('Watch Now')
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId('back_to_results')
+                        .setLabel('Back to Results')
+                        .setStyle(ButtonStyle.Secondary)
+                ];
+
+                if (detailsResponse.data.cast && detailsResponse.data.cast.length > 0) {
+                    buttons.push(
+                        new ButtonBuilder()
+                            .setCustomId(`view_cast_${type}_${id}_1`)
+                            .setLabel(`View Cast (${detailsResponse.data.cast.length})`)
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                }
+
+                const info = detailsResponse.data.info || detailsResponse.data.data?.info;
+
+                if (info?.videos && info.videos.length > 0) {
+                    const trailers = info.videos.filter(v => v.type === 'Trailer' || v.type === 'Teaser');
+                    if (trailers.length > 0) {
+                        buttons.push(
+                            new ButtonBuilder()
+                                .setCustomId(`view_trailers_${type}_${id}`)
+                                .setLabel(`Trailers (${trailers.length})`)
+                                .setStyle(ButtonStyle.Primary)
+                        );
+                    }
+
+                    const clips = info.videos.filter(v => v.type === 'Clip');
+                    if (clips.length > 0) {
+                        buttons.push(
+                            new ButtonBuilder()
+                                .setCustomId(`view_clips_${type}_${id}`)
+                                .setLabel(`Clips (${clips.length})`)
+                                .setStyle(ButtonStyle.Primary)
+                        );
+                    }
+                }
+
+                if (info?.homepage) {
+                    buttons.push(
+                        new ButtonBuilder()
+                            .setLabel('Official Website')
+                            .setStyle(ButtonStyle.Link)
+                            .setURL(info.homepage)
+                    );
+                }
+
+                const rows = [];
+                for (let i = 0; i < buttons.length; i += 5) {
+                    rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
+                }
+
+                await interaction.editReply({
+                    content: null,
+                    embeds: [embed],
+                    components: rows
+                });
+            } catch (error) {
+                console.error('Back to detail error:', error);
+                await interaction.followUp({ content: 'Could not load details. Please try again.', ephemeral: true });
             }
             return;
         }
@@ -1567,7 +1724,7 @@ client.on('interactionCreate', async interaction => {
             if (detailsResponse.data.cast && detailsResponse.data.cast.length > 0) {
                 buttons.push(
                     new ButtonBuilder()
-                        .setCustomId(`view_cast_${type}_${item.id}`)
+                        .setCustomId(`view_cast_${type}_${item.id}_1`)
                         .setLabel(`View Cast (${detailsResponse.data.cast.length})`)
                         .setStyle(ButtonStyle.Primary)
                 );
@@ -1576,12 +1733,25 @@ client.on('interactionCreate', async interaction => {
             const info = detailsResponse.data.info || detailsResponse.data.data?.info;
 
             if (info?.videos && info.videos.length > 0) {
-                buttons.push(
-                    new ButtonBuilder()
-                        .setCustomId(`view_trailers_${type}_${item.id}`)
-                        .setLabel(`View Trailers (${info.videos.length})`)
-                        .setStyle(ButtonStyle.Primary)
-                );
+                const trailers = info.videos.filter(v => v.type === 'Trailer' || v.type === 'Teaser');
+                if (trailers.length > 0) {
+                    buttons.push(
+                        new ButtonBuilder()
+                            .setCustomId(`view_trailers_${type}_${item.id}`)
+                            .setLabel(`Trailers (${trailers.length})`)
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                }
+
+                const clips = info.videos.filter(v => v.type === 'Clip');
+                if (clips.length > 0) {
+                    buttons.push(
+                        new ButtonBuilder()
+                            .setCustomId(`view_clips_${type}_${item.id}`)
+                            .setLabel(`Clips (${clips.length})`)
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                }
             }
 
             if (info?.homepage) {
