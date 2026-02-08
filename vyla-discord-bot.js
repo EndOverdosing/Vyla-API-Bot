@@ -1317,22 +1317,14 @@ client.on('interactionCreate', async interaction => {
                 castSlice.forEach(member => {
                     const castEmbed = new EmbedBuilder()
                         .setColor('White')
-                        .setTitle(member.name);
-
-                    const fields = [
-                        { name: 'Character', value: member.character || 'Unknown', inline: true },
-                        { name: 'Known For', value: member.known_for_department || 'Acting', inline: true }
-                    ];
-
-                    castEmbed.addFields(fields);
+                        .setTitle(member.name)
+                        .addFields(
+                            { name: 'Character', value: member.character || 'Unknown', inline: true },
+                            { name: 'Known For', value: member.known_for_department || 'Acting', inline: true }
+                        );
 
                     if (member.profile) {
                         castEmbed.setImage(member.profile);
-                    }
-
-                    if (member.id) {
-                        castEmbed.setURL(`https://vyla-api.vercel.app/api/cast/${member.id}`);
-                        castEmbed.setFooter({ text: 'Click title to view full profile' });
                     }
 
                     embeds.push(castEmbed);
