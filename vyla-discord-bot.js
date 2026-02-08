@@ -366,7 +366,6 @@ async function updatePresence() {
             ];
             const randomMessage = statusMessages[Math.floor(Math.random() * statusMessages.length)];
             await client.user.setActivity(randomMessage, { type: 3 });
-            console.log(`Status updated: ${randomMessage}`);
         } else {
             await client.user.setActivity('/help for commands', { type: 3 });
         }
@@ -1277,20 +1276,23 @@ client.on('interactionCreate', async interaction => {
                     return;
                 }
 
-                const castPerPage = 10;
+                const castPerPage = 5;
                 const totalPages = Math.ceil(cast.length / castPerPage);
                 const startIndex = (page - 1) * castPerPage;
                 const endIndex = Math.min(startIndex + castPerPage, cast.length);
                 const castSlice = cast.slice(startIndex, endIndex);
 
-                const embed = new EmbedBuilder()
-                    .setColor('White')
-                    .setTitle(`Cast & Crew - ${detailsResponse.data.info?.title || detailsResponse.data.info?.name}`)
-                    .setDescription(`Showing ${startIndex + 1}-${endIndex} of ${cast.length} cast members`);
+                const embeds = [];
 
                 if (page === 1) {
+                    const crewEmbed = new EmbedBuilder()
+                        .setColor('White')
+                        .setTitle(`Cast & Crew - ${detailsResponse.data.info?.title || detailsResponse.data.info?.name}`);
+
+                    const crewFields = [];
+
                     if (crew.directors?.length) {
-                        embed.addFields({
+                        crewFields.push({
                             name: 'Director(s)',
                             value: crew.directors.map(d => d.name).join(', '),
                             inline: false
@@ -1298,26 +1300,43 @@ client.on('interactionCreate', async interaction => {
                     }
 
                     if (crew.writers?.length) {
-                        embed.addFields({
+                        crewFields.push({
                             name: 'Writer(s)',
                             value: crew.writers.slice(0, 3).map(w => w.name).join(', '),
                             inline: false
                         });
                     }
+
+                    if (crewFields.length > 0) {
+                        crewEmbed.addFields(crewFields);
+                        crewEmbed.setDescription(`Showing ${startIndex + 1}-${endIndex} of ${cast.length} cast members`);
+                        embeds.push(crewEmbed);
+                    }
                 }
 
                 castSlice.forEach(member => {
-                    const profile = member.profile ? `[View Profile](${member.view_cast_link})` : 'No profile available';
-                    embed.addFields({
-                        name: `${member.name}`,
-                        value: `**Character:** ${member.character}\n**Known For:** ${member.known_for_department}\n${profile}`,
-                        inline: true
-                    });
-                });
+                    const castEmbed = new EmbedBuilder()
+                        .setColor('White')
+                        .setTitle(member.name);
 
-                if (castSlice[0]?.profile) {
-                    embed.setThumbnail(castSlice[0].profile);
-                }
+                    const fields = [
+                        { name: 'Character', value: member.character || 'Unknown', inline: true },
+                        { name: 'Known For', value: member.known_for_department || 'Acting', inline: true }
+                    ];
+
+                    castEmbed.addFields(fields);
+
+                    if (member.profile) {
+                        castEmbed.setImage(member.profile);
+                    }
+
+                    if (member.id) {
+                        castEmbed.setURL(`https://vyla-api.vercel.app/api/cast/${member.id}`);
+                        castEmbed.setFooter({ text: 'Click title to view full profile' });
+                    }
+
+                    embeds.push(castEmbed);
+                });
 
                 const buttons = [];
 
@@ -1325,7 +1344,7 @@ client.on('interactionCreate', async interaction => {
                     buttons.push(
                         new ButtonBuilder()
                             .setCustomId(`view_cast_${type}_${id}_${page - 1}`)
-                            .setLabel('Previous')
+                            .setLabel('◀ Previous')
                             .setStyle(ButtonStyle.Primary)
                     );
                 }
@@ -1334,7 +1353,7 @@ client.on('interactionCreate', async interaction => {
                     buttons.push(
                         new ButtonBuilder()
                             .setCustomId(`view_cast_${type}_${id}_${page + 1}`)
-                            .setLabel('Next')
+                            .setLabel('Next ▶')
                             .setStyle(ButtonStyle.Primary)
                     );
                 }
@@ -1349,8 +1368,8 @@ client.on('interactionCreate', async interaction => {
                 const row = new ActionRowBuilder().addComponents(...buttons);
 
                 await interaction.editReply({
-                    content: null,
-                    embeds: [embed],
+                    content: page === 1 && embeds.length > 1 ? null : `Showing ${startIndex + 1}-${endIndex} of ${cast.length} cast members`,
+                    embeds: embeds,
                     components: [row]
                 });
             } catch (error) {
