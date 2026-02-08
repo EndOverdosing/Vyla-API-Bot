@@ -69,8 +69,6 @@ const GENRE_MAP = {
 
 const userSessions = new Map();
 
-
-
 function createSourceButtons(sources) {
     const rows = [];
     const maxButtons = 25;
@@ -123,13 +121,13 @@ function createMediaEmbed(item, type, index) {
                 : 'No description available'
         )
         .addFields(
-            { name: 'Rating', value: `⭐ ${rating}/10`, inline: true },
+            { name: 'Rating', value: `${rating}/10`, inline: true },
             {
                 name: 'Year',
                 value: (item.release_date || item.first_air_date || item.year || 'Unknown').toString().split('-')[0],
                 inline: true
             },
-            { name: 'Popularity', value: `🔥 ${popularity}`, inline: true }
+            { name: 'Popularity', value: `${popularity}`, inline: true }
         );
 
     if (item.genre_ids && item.genre_ids.length > 0) {
@@ -183,9 +181,9 @@ function createDetailedEmbed(data, type) {
     }
 
     embed.addFields(
-        { name: 'Rating', value: `⭐ ${rating}/10 (${voteCount} votes)`, inline: true },
+        { name: 'Rating', value: `${rating}/10 (${voteCount} votes)`, inline: true },
         { name: 'Status', value: info.status || 'Unknown', inline: true },
-        { name: 'Popularity', value: `🔥 ${popularity}`, inline: true }
+        { name: 'Popularity', value: `${popularity}`, inline: true }
     );
 
     if (type === 'movie') {
@@ -1334,6 +1332,105 @@ client.on('interactionCreate', async interaction => {
             }
             return;
         }
+
+        if (interaction.customId.startsWith('view_trailers_')) {
+            await interaction.deferUpdate();
+            const parts = interaction.customId.split('_');
+            const type = parts[2];
+            const id = parts[3];
+
+            try {
+                const detailsResponse = await api.get(`/details/${type}/${id}`);
+                const info = detailsResponse.data.info || detailsResponse.data.data?.info;
+                const videos = info?.videos || [];
+
+                if (videos.length === 0) {
+                    await interaction.followUp({ content: 'No videos available.', ephemeral: true });
+                    return;
+                }
+
+                const trailers = videos.filter(v => v.type === 'Trailer');
+                const teasers = videos.filter(v => v.type === 'Teaser');
+                const clips = videos.filter(v => v.type === 'Clip');
+                const featurettes = videos.filter(v => v.type === 'Featurette');
+                const behindScenes = videos.filter(v => v.type === 'Behind the Scenes');
+
+                const embed = new EmbedBuilder()
+                    .setColor('White')
+                    .setTitle(`Videos - ${info.title || info.name}`)
+                    .setDescription(`${videos.length} total videos available`);
+
+                if (info.title_image) {
+                    embed.setThumbnail(info.title_image);
+                } else if (info.poster) {
+                    embed.setThumbnail(info.poster);
+                }
+
+                if (trailers.length > 0) {
+                    const trailerList = trailers.slice(0, 5).map(v =>
+                        `🎬 [${v.name}](${v.url})`
+                    ).join('\n');
+                    embed.addFields({ name: `Trailers (${trailers.length})`, value: trailerList, inline: false });
+                }
+
+                if (teasers.length > 0) {
+                    const teaserList = teasers.slice(0, 3).map(v =>
+                        `🎥 [${v.name}](${v.url})`
+                    ).join('\n');
+                    embed.addFields({ name: `Teasers (${teasers.length})`, value: teaserList, inline: false });
+                }
+
+                if (clips.length > 0) {
+                    const clipList = clips.slice(0, 5).map(v =>
+                        `📹 [${v.name}](${v.url})`
+                    ).join('\n');
+                    embed.addFields({ name: `Clips (${clips.length})`, value: clipList, inline: false });
+                }
+
+                if (featurettes.length > 0) {
+                    const featuretteList = featurettes.slice(0, 3).map(v =>
+                        `🎞️ [${v.name}](${v.url})`
+                    ).join('\n');
+                    embed.addFields({ name: `Featurettes (${featurettes.length})`, value: featuretteList, inline: false });
+                }
+
+                if (behindScenes.length > 0) {
+                    const behindList = behindScenes.slice(0, 3).map(v =>
+                        `🎭 [${v.name}](${v.url})`
+                    ).join('\n');
+                    embed.addFields({ name: `Behind the Scenes (${behindScenes.length})`, value: behindList, inline: false });
+                }
+
+                const buttons = [];
+
+                if (info.trailer_url) {
+                    buttons.push(
+                        new ButtonBuilder()
+                            .setLabel('Watch Main Trailer')
+                            .setStyle(ButtonStyle.Link)
+                            .setURL(info.trailer_url)
+                    );
+                }
+
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId('back_to_results')
+                        .setLabel('Back to Details')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+                const backButton = new ActionRowBuilder().addComponents(...buttons);
+
+                await interaction.editReply({
+                    embeds: [embed],
+                    components: [backButton]
+                });
+            } catch (error) {
+                console.error('View trailers error:', error);
+                await interaction.followUp({ content: 'Could not load videos. Please try again.', ephemeral: true });
+            }
+            return;
+        }
     }
 
     if (interaction.isStringSelectMenu() && interaction.customId === 'season_select') {
@@ -1472,11 +1569,34 @@ client.on('interactionCreate', async interaction => {
                 );
             }
 
-            const row = new ActionRowBuilder().addComponents(...buttons);
+            const info = detailsResponse.data.info || detailsResponse.data.data?.info;
+
+            if (info?.videos && info.videos.length > 0) {
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(`view_trailers_${type}_${item.id}`)
+                        .setLabel(`View Trailers (${info.videos.length})`)
+                        .setStyle(ButtonStyle.Primary)
+                );
+            }
+
+            if (info?.homepage) {
+                buttons.push(
+                    new ButtonBuilder()
+                        .setLabel('Official Website')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(info.homepage)
+                );
+            }
+
+            const rows = [];
+            for (let i = 0; i < buttons.length; i += 5) {
+                rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
+            }
 
             const reply = await interaction.editReply({
                 embeds: [embed],
-                components: [row]
+                components: rows
             });
 
             session.messageId = reply.id;
